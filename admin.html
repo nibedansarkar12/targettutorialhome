@@ -585,7 +585,8 @@ window.uploadCSV = function () {
 let added = 0;
 let skipped = 0;
 
-const batch = writeBatch(db);
+let batch = writeBatch(db);
+let batchCount = 0;
 
 for (const row of rows) {
 
@@ -627,6 +628,13 @@ for (const row of rows) {
         photo: "",
         createdAt: new Date()
     });
+    batchCount++;
+
+if (batchCount === 500) {
+    await batch.commit();
+    batch = writeBatch(db);
+    batchCount = 0;
+}
 
     added++;
 
@@ -634,7 +642,9 @@ for (const row of rows) {
         `Uploading ${added}/${rows.length}`;
 }
 
-await batch.commit();
+if (batchCount > 0) {
+    await batch.commit();
+}
 
 document.getElementById("csvProgress").innerHTML =
 `✅ Added : ${added} <br>⛔ Skipped : ${skipped}`;
