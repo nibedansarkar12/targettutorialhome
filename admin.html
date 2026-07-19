@@ -53,6 +53,7 @@
     color: #ffffff !important;
 }
 </style>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
 <div id="tz-global-loader" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;color:white;font-size:20px">
@@ -121,6 +122,26 @@ function hideLoader(){document.getElementById('tz-global-loader').style.display=
 <label><input name="correct" type="radio" value="3"/> <input class="w-full border rounded px-3 py-2" id="option4" placeholder="Option D"/></label>
 </div>
 <button class="bg-blue-500 text-gray-100 px-4 py-2 rounded" onclick="addQuestion()" type="button">Add</button>
+    <hr class="my-4">
+
+<h4 class="text-lg font-bold mb-2">📂 CSV Upload</h4>
+
+<input
+    type="file"
+    id="csvFile"
+    accept=".csv"
+    class="w-full border rounded px-3 py-2 mb-3">
+
+<button
+    type="button"
+    onclick="uploadCSV()"
+    class="bg-green-600 text-white px-4 py-2 rounded">
+    ⬆ Upload CSV
+</button>
+
+<div id="csvProgress"
+     class="mt-3 text-sm text-green-700 font-bold">
+</div>
 </form>
 <h3 class="text-lg font-semibold mt-6">📋 Added Questions</h3>
 <div class="max-h-64 overflow-y-auto border rounded mt-3">
