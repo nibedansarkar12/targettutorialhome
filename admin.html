@@ -576,6 +576,19 @@ window.uploadCSV = function () {
         complete: async function(result) {
 
             const rows = result.data;
+            if (rows.length === 0) {
+    alert("CSV File খালি!");
+    return;
+}
+
+const required = ["question", "option1", "option2", "option3", "option4", "answer"];
+
+for (const col of required) {
+    if (!(col in rows[0])) {
+        alert("CSV-তে '" + col + "' কলাম নেই");
+        return;
+    }
+        }
 
             document.getElementById("csvProgress").innerHTML =
                 "মোট " + rows.length + " টি প্রশ্ন পাওয়া গেছে...";
@@ -645,6 +658,12 @@ if (batchCount === 500) {
 if (batchCount > 0) {
     await batch.commit();
 }
+            document.getElementById("csvFile").value = "";
+
+document.getElementById("csvProgress").innerHTML =
+`✅ Upload Complete<br>
+Added: ${added}<br>
+Skipped: ${skipped}`;
 
 document.getElementById("csvProgress").innerHTML =
 `✅ Added : ${added} <br>⛔ Skipped : ${skipped}`;
