@@ -1143,6 +1143,7 @@ window.tz_openEditModal = async function(studentId){
   document.getElementById("edit-phone").value = d.phone || "";
   document.getElementById("edit-whatsapp").value = d.whatsapp || "";
   document.getElementById("edit-address").value = d.address || "";
+    document.getElementById("edit-dob").value = d.dob || "";
   document.getElementById("tz-edit-modal").classList.remove("hidden");
 };
 
@@ -1157,6 +1158,7 @@ document.addEventListener("click", async (e)=>{
       phone: document.getElementById("edit-phone").value,
       whatsapp: document.getElementById("edit-whatsapp").value,
       address: document.getElementById("edit-address").value,
+        dob: document.getElementById("edit-dob").value,
     });
     document.getElementById("tz-edit-modal").classList.add("hidden");
     alert("Student Updated");
