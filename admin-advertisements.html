@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Advertisement Management - Target Tutorial</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#eaf1ff;background:#081426}
+*{box-sizing:border-box}body{margin:0;padding:20px;background:linear-gradient(135deg,#081426,#172554);min-height:100vh}
+main{max-width:850px;margin:auto}.card{background:#ffffff12;border:1px solid #ffffff22;border-radius:18px;padding:20px;margin:16px 0}
+h1{font-size:25px}.muted{color:#b8c5da;font-size:14px}label{display:block;margin:12px 0 6px}
+input,textarea{width:100%;padding:12px;border:1px solid #64748b;border-radius:10px;background:#f8fafc;color:#111827}
+button{padding:12px 16px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:700;margin:8px 6px 0 0}
+button.danger{background:#b91c1c}button.secondary{background:#475569}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+#preview{display:none;background:white;color:#172033;border-radius:14px;padding:14px;margin-top:14px}
+#preview img{max-width:100%;max-height:240px;object-fit:contain;border-radius:10px}
+.status{padding:10px;border-radius:10px;background:#0005;margin-top:12px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<main>
+<h1>📢 Advertisement Popup Management</h1>
+<p class="muted">এখান থেকে Android Student App-এর startup popup প্রকাশ, পরিবর্তন ও বন্ধ করতে পারবেন।</p>
+<div class="card">
+  <h2>Admin Login</h2>
+  <div class="row">
+    <input id="email" type="email" placeholder="Admin email">
+    <input id="password" type="password" placeholder="Password">
+  </div>
+  <button id="login">Login</button>
+  <button id="logout" class="secondary">Logout</button>
+  <div id="authStatus" class="status">লগইন করে Admin permission যাচাই করুন।</div>
+</div>
+
+<form id="adForm" class="card">
+  <h2>Popup Content</h2>
+  <label><input id="enabled" type="checkbox" style="width:auto"> Popup চালু থাকবে</label>
+  <label>Advertisement Title</label>
+  <input id="title" maxlength="100" placeholder="যেমন: নতুন ব্যাচে ভর্তি চলছে">
+  <label>Description</label>
+  <textarea id="message" rows="3" maxlength="500" placeholder="বিজ্ঞাপনের বিস্তারিত"></textarea>
+  <label>ছবি (ঐচ্ছিক)</label>
+  <input id="image" type="file" accept="image/*">
+  <label>Button Text</label>
+  <input id="buttonText" maxlength="40" placeholder="আরও জানুন">
+  <label>Button Link (ঐচ্ছিক, https://)</label>
+  <input id="buttonUrl" type="url" placeholder="https://example.com">
+  <label>প্রতি App Open-এ দেখাবে</label>
+  <input value="হ্যাঁ — প্রতিবার অ্যাপ চালু হলে" disabled>
+  <label>Popup delay</label>
+  <input value="০ সেকেন্ড — সঙ্গে সঙ্গে" disabled>
+  <div class="row">
+    <button type="submit">Save & Publish</button>
+    <button type="button" id="disable" class="danger">সব ডিভাইসে Popup বন্ধ</button>
+  </div>
+  <div id="preview">
+    <img id="previewImage" alt="Advertisement preview">
+    <h2 id="previewTitle"></h2><p id="previewMessage"></p><button type="button" id="previewButton"></button>
+  </div>
+  <div id="status" class="status">প্রথমে Admin Login করুন।</div>
+</form>
+</main>
+<script type="module">
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyCR5rqthBh0vX0yLOcOG3b9xJiKbYtzdxU",
+  authDomain:"target-zone-8fffd.firebaseapp.com",
+  projectId:"target-zone-8fffd",
+  storageBucket:"target-zone-8fffd.appspot.com",
+  messagingSenderId:"667579216123",
+  appId:"1:667579216123:web:37bb1fcc724743073d005e"
+};
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const auth=getAuth(app), db=getFirestore(app), storage=getStorage(app);
+const configRef=doc(db,"appSettings","advertisementPopup");
+let isAdmin=false, existingImageUrl="";
+const $=id=>document.getElementById(id);
+function status(t){$("status").textContent=t}
+function setFormEnabled(v){[...$("adForm").querySelectorAll("input,textarea,button")].forEach(x=>x.disabled=!v);$("disable").disabled=!v}
+setFormEnabled(false);
+
+onAuthStateChanged(auth, async user=>{
+  isAdmin=false;
+  if(!user){$("authStatus").textContent="লগইন করা নেই।";setFormEnabled(false);return;}
+  try{
+    const a=await getDoc(doc(db,"admins",user.uid));
+    if(!a.exists()){await signOut(auth);$("authStatus").textContent="এই account Admin হিসেবে অনুমোদিত নয়।";return;}
+    isAdmin=true;$("authStatus").textContent="Admin verified: "+user.email;setFormEnabled(true);
+    const snap=await getDoc(configRef);
+    if(snap.exists()){
+      const d=snap.data();$("enabled").checked=!!d.enabled;
+      $("title").value=d.title||"";$("message").value=d.message||"";
+      $("buttonText").value=d.buttonText||"";$("buttonUrl").value=d.buttonUrl||"";
+      existingImageUrl=d.imageUrl||"";renderPreview(d);
+    }
+  }catch(e){$("authStatus").textContent="Permission/config error: "+e.message;}
+});
+$("login").onclick=async()=>{
+  try{await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value); }
+  catch(e){$("authStatus").textContent="Login failed: "+e.message;}
+};
+$("logout").onclick=()=>signOut(auth);
+function renderPreview(d){
+  $("preview").style.display="block";$("previewTitle").textContent=d.title||"";
+  $("previewMessage").textContent=d.message||"";$("previewButton").textContent=d.buttonText||"";
+  if(d.imageUrl){$("previewImage").src=d.imageUrl;$("previewImage").style.display="block";}
+  else $("previewImage").style.display="none";
+}
+$("image").onchange=()=>{
+  const f=$("image").files[0];if(!f)return;
+  if(f.size>5*1024*1024){status("ছবির আকার ৫ MB-এর কম হতে হবে।");$("image").value="";return;}
+  const u=URL.createObjectURL(f);renderPreview({title:$("title").value,message:$("message").value,buttonText:$("buttonText").value,imageUrl:u});
+};
+$("title").oninput=$("message").oninput=$("buttonText").oninput=()=>{
+  renderPreview({title:$("title").value,message:$("message").value,buttonText:$("buttonText").value,imageUrl:existingImageUrl});
+};
+$("adForm").onsubmit=async e=>{
+  e.preventDefault();if(!isAdmin)return status("Admin permission নেই।");
+  try{
+    let imageUrl=existingImageUrl, file=$("image").files[0];
+    if(file){
+      const safeName=Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      const fileRef=ref(storage,"advertisement-popups/"+safeName);
+      await uploadBytes(fileRef,file,{contentType:file.type});
+      imageUrl=await getDownloadURL(fileRef);
+    }
+    const buttonUrl=$("buttonUrl").value.trim();
+    if(buttonUrl && !/^https:\/\//i.test(buttonUrl))throw new Error("Button link অবশ্যই https:// দিয়ে শুরু হতে হবে।");
+    const data={
+      enabled:$("enabled").checked,
+      title:$("title").value.trim(),
+      message:$("message").value.trim(),
+      imageUrl,
+      buttonText:$("buttonText").value.trim(),
+      buttonUrl,
+      displayFrequency:"every_app_open",
+      delaySeconds:0,
+      updatedAt:serverTimestamp(),
+      updatedBy:auth.currentUser.uid
+    };
+    await setDoc(configRef,data,{merge:true});
+    existingImageUrl=imageUrl;renderPreview(data);status("বিজ্ঞাপন Publish হয়েছে। পরবর্তী App Open-এ ছাত্ররা এটি দেখবে।");
+  }catch(err){status("Save failed: "+err.message);}
+};
+$("disable").onclick=async()=>{
+  if(!isAdmin)return;
+  try{await setDoc(configRef,{enabled:false,updatedAt:serverTimestamp(),updatedBy:auth.currentUser.uid},{merge:true});$("enabled").checked=false;status("Popup সব ছাত্রের জন্য বন্ধ করা হয়েছে।");}
+  catch(e){status("Disable failed: "+e.message);}
+};
+</script>
+</body>
+</html>
