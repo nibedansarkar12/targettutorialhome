@@ -1,0 +1,2567 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8"/>
+<title>Target Zone - Admin Panel</title>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body { background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:white; font-family:'Segoe UI',sans-serif; overflow:hidden; }
+    .sidebar { background: linear-gradient(180deg,#1e3c72,#2a5298); transition: transform 0.4s ease; }
+    .glass { background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); color:black; animation: glow 4s infinite alternate; }
+    @keyframes glow { from {box-shadow:0 0 5px #6a11cb;} to {box-shadow:0 0 25px #2575fc;} }
+    .rainbow { background: linear-gradient(90deg,#ff7e5f,#feb47b,#ff6a00,#ee0979,#6a11cb,#2575fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight:bold; }
+    .nav-btn { display:flex; align-items:center; gap:10px; transition:all 0.3s; background:rgba(255,255,255,0.1); }
+    .nav-btn:hover { background:linear-gradient(90deg,#ff7e5f,#feb47b,#6a11cb); color:white; transform:translateX(5px); }
+    .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:999; }
+    .modal img { max-width:90%; max-height:90%; border:5px solid white; border-radius:10px; }
+    .finance-bg {
+  background: linear-gradient(135deg, #ff7e5f, #feb47b, #6a11cb, #2575fc);
+  animation: gradientShift 10s ease infinite;
+}
+@keyframes gradientShift {
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
+#section-finance .glass {
+  color: black !important;
+}
+#section-finance input,
+#section-finance select,
+#section-finance textarea {
+  color: black !important;
+}
+#section-finance, 
+#section-finance * {
+  color: black !important;
+}
+</style>
+
+<style>
+#section-registration input,
+#section-registration select,
+#section-registration textarea {
+    color: #ffffff !important;
+}
+#section-registration input::placeholder,
+#section-registration select::placeholder {
+    color: rgba(255,255,255,0.85) !important;
+}
+#section-registration label {
+    color: #ffffff !important;
+}
+</style>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+
+<div id="tz-global-loader" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;color:white;font-size:20px">
+⏳ Processing...
+</div>
+<script>
+function showLoader(){document.getElementById('tz-global-loader').style.display='flex';}
+function hideLoader(){document.getElementById('tz-global-loader').style.display='none';}
+</script>
+
+<body class="h-screen flex overflow-hidden">
+<canvas class="fixed top-0 left-0 w-full h-full -z-10" id="bg-canvas"></canvas>
+<aside class="sidebar fixed md:static w-64 h-full text-gray-100 z-50 hidden md:flex flex-col" id="sidebar">
+<div class="p-5 flex justify-between items-center border-b border-white/20">
+<div>
+<h1 class="rainbow text-2xl">🌈 Target Zone</h1>
+<p class="text-sm" id="admin-email"></p>
+</div>
+<button class="md:hidden text-xl" id="close-sidebar">❌</button>
+</div>
+<nav class="p-4 space-y-3 flex-1">
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('add')">➕ Add Question</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('results')">📊 View Results</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('users')">👥 Manage Users</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('registration')">📋 Registration</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('notes')">📚 Manage Notes</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('notice')">📢 Notice Board</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('advertisement')">📣 Advertisement Settings</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('finance')">💼 Salary &amp; More</button>
+<button class="nav-btn w-full py-2 px-3 rounded" onclick="showSection('finance-summary')">📈 Finance Summary</button>
+</nav>
+<div class="p-4 border-t border-white/20">
+<button class="w-full bg-red-600 py-2 rounded" onclick="logout()">🚪 Logout</button>
+</div>
+</aside>
+<main class="flex-1 p-6 overflow-y-auto">
+<div class="flex justify-between items-center mb-6">
+<button class="md:hidden bg-yellow-400 px-3 py-2 rounded" id="menu-btn">☰</button>
+<h2 class="rainbow text-3xl">🛠️ Admin Panel</h2>
+<div class="flex items-center gap-3">
+<audio id="bg-music" loop muted>
+<source src="Bangla_nonstop_romantic_song____Kumar_Sanu____adhunik_Bangla_gaan____বাংলা_গান____90s_bengali_song(256k).mp3" type="audio/mp3"/>
+</audio>
+<button class="bg-green-500 px-3 py-1 rounded" id="music-btn">🔊 Play Sound</button>
+</div>
+</div>
+<!-- Add Question -->
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-add">
+<form id="question-form">
+<h3 class="text-xl font-bold mb-4">➕ Add New Question</h3>
+<select class="w-full border rounded px-3 py-2 mb-3" id="category" onchange="loadSubcategories(this.value)">
+    <option value="">--Select Class--</option>
+
+    <option value="class7">Class 7</option>
+    <option value="class8">Class 8</option>
+    <option value="class9">Class 9</option>
+    <option value="class10">Class 10</option>
+    <option value="class11">Class 11</option>
+    <option value="class12">Class 12</option>
+</select>
+<div class="flex gap-2 mb-3">
+<select class="w-full border rounded px-3 py-2" id="subcategory"></select>
+<input class="border rounded px-3 py-2" id="new-subcat" placeholder="➕ New Subcategory" type="text"/>
+<button class="bg-green-500 text-gray-100 px-3 rounded" onclick="addSubcategory()" type="button">Add</button>
+</div>
+<textarea class="w-full border rounded px-3 py-2 mb-3" id="question" placeholder="প্রশ্ন লিখুন..." rows="3"></textarea>
+<div class="grid grid-cols-2 gap-3">
+<label><input name="correct" type="radio" value="0"/> <input class="w-full border rounded px-3 py-2" id="option1" placeholder="Option A"/></label>
+<label><input name="correct" type="radio" value="1"/> <input class="w-full border rounded px-3 py-2" id="option2" placeholder="Option B"/></label>
+<label><input name="correct" type="radio" value="2"/> <input class="w-full border rounded px-3 py-2" id="option3" placeholder="Option C"/></label>
+<label><input name="correct" type="radio" value="3"/> <input class="w-full border rounded px-3 py-2" id="option4" placeholder="Option D"/></label>
+</div>
+<button class="bg-blue-500 text-gray-100 px-4 py-2 rounded" onclick="addQuestion()" type="button">Add</button>
+    <hr class="my-4">
+
+<h4 class="text-lg font-bold mb-2">📂 CSV Upload</h4>
+
+<input
+    type="file"
+    id="csvFile"
+    accept=".csv"
+    class="w-full border rounded px-3 py-2 mb-3">
+
+<button
+    type="button"
+    onclick="uploadCSV()"
+    class="bg-green-600 text-white px-4 py-2 rounded">
+    ⬆ Upload CSV
+</button>
+
+<div id="csvProgress"
+     class="mt-3 text-sm text-green-700 font-bold">
+</div>
+</form>
+<h3 class="text-lg font-semibold mt-6">📋 Added Questions</h3>
+<div class="max-h-64 overflow-y-auto border rounded mt-3">
+<table class="w-full text-left border">
+<thead><tr><th>Question</th><th>Answer</th><th>Delete</th></tr></thead>
+<tbody id="questions-list"></tbody>
+</table>
+</div>
+</section>
+<!-- Results -->
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-results">
+<h3 class="text-xl font-bold mb-4">📊 View Results</h3>
+<canvas class="mb-6" id="resultsChart"></canvas>
+<table class="w-full text-left border">
+<thead><tr><th>Email</th><th>Exam</th><th>Score</th><th>Submitted</th></tr></thead>
+<tbody id="results-list"></tbody>
+</table>
+</section>
+<!-- Users -->
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-users">
+<h3 class="text-xl font-bold mb-4">👥 Manage Users</h3>
+<table class="w-full text-left border">
+<thead><tr><th>Name</th><th>Email</th><th>WhatsApp</th><th>Education</th><th>Status</th></tr></thead>
+<tbody id="users-list"></tbody>
+</table>
+</section>
+<!-- Registration Section (ADDED) -->
+<section id="section-registration" class=" glass p-5 md:p-8 rounded-3xl shadow-2xl hidden backdrop-blur-lg bg-black/40 backdrop-blur-2xl shadow-2xl" aria-label="registration-section">
+  <div class="max-w-xl mx-auto">
+    <h3 class="text-2xl font-extrabold mb-4" style="background:linear-gradient(90deg,#ff7e5f,#6a11cb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">📋 Student Registration</h3>
+    <p class="text-sm mb-4 text-gray-300">Complete the form below to register a student.</p>
+    <form id="registration-form" class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input id="reg-name" name="name" type="text" autocomplete="name" required placeholder="নাম (Required)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+        <input id="reg-phone" name="phone" type="tel" inputmode="tel" required placeholder="ফোন নম্বর (Required)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input id="reg-father" name="father" type="text" required placeholder="বাবার নাম (Required)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+        <input id="reg-whatsapp" name="whatsapp" type="tel" placeholder="WhatsApp নম্বর (Optional)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100 text-gray-100 placeholder-gray-300"/>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input id="reg-email" name="email" type="email" placeholder="Email (Optional)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+        <label for="reg-dob" class="text-sm text-gray-200 block mb-1">জন্ম তারিখ (Date of Birth)</label>
+        <input id="reg-dob" name="dob" type="date" placeholder="Date of Birth" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input id="reg-address" name="address" type="text" placeholder="ঠিকানা (Optional)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+        <input id="reg-education" name="education" type="text" placeholder="Education (Optional)" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl placeholder-gray-300 text-gray-100"/>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <select id="reg-batch-select" name="batch" class="w-full rounded-xl px-4 py-3 bg-white/10 backdrop-blur-xl text-gray-100">
+          <option value="">-- Select Batch --</option>
+        </select>
+      </div>
+      <div class="pt-2">
+        <button type="submit" id="reg-submit-btn" class="w-full md:w-auto bg-gradient-to-r from-[#ff7e5f] to-[#6a11cb] text-gray-100 font-semibold rounded-2xl px-6 py-3 shadow-xl">Submit Registration</button>
+      </div>
+    </form>
+    <p id="reg-feedback" class="mt-3 text-sm text-green-400 hidden"></p>
+  </div>
+</section>
+
+<section aria-label="finance-section" id="section-finance"
+  class="hidden min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 text-white">
+
+  <!-- App Header -->
+  <div class="sticky top-0 z-40 bg-black/40 backdrop-blur-xl px-4 py-3 flex items-center justify-between">
+    <h3 class="text-xl font-bold tracking-wide flex items-center gap-2">
+      💼 <span>Salary & More</span>
+    </h3>
+    <span class="text-xs opacity-70">Admin</span>
+  </div>
+
+  <!-- App Body -->
+  <div class="p-4 space-y-6">
+
+    <!-- Batches -->
+    <div class="rounded-3xl bg-white/10 backdrop-blur-xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="font-semibold text-lg flex items-center gap-2">📦 Batches</h4>
+        <button id="tz-show-add-batch"
+          class="bg-indigo-600 active:scale-95 transition px-4 py-2 rounded-full text-sm">
+          ➕ Add
+        </button>
+      </div>
+      <div id="tz-batch-list" class="space-y-2 max-h-52 overflow-y-auto text-sm">
+        <div class="opacity-60">Loading…</div>
+      </div>
+
+      <div id="tz-batch-form" class="hidden mt-3 space-y-2">
+        <input id="tz-new-batch-name"
+          class="w-full rounded-xl px-4 py-2 bg-black/30 outline-none"
+          placeholder="Batch name"/>
+        <button id="tz-save-batch"
+          class="w-full bg-green-600 py-2 rounded-xl active:scale-95">
+          Save Batch
+        </button>
+      </div>
+    </div>
+
+    <!-- Students -->
+    <div class="rounded-3xl bg-white/10 backdrop-blur-xl p-4 shadow-xl">
+      <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">👥 Students</h4>
+
+      <input id="tz-student-search"
+        class="w-full mb-3 rounded-full px-5 py-3 bg-black/30 outline-none text-sm"
+        placeholder="🔍 Search student"/>
+
+      <div id="tz-student-list"
+        class="space-y-3 max-h-[22rem] overflow-y-auto">
+      </div>
+    </div>
+
+    <!-- Profile -->
+    <div id="tz-student-panel" class="hidden"
+      class="rounded-3xl bg-white/10 backdrop-blur-xl p-4 shadow-xl">
+      <h4 class="font-semibold text-lg mb-2 flex items-center gap-2">🧑 Profile</h4>
+      <div id="tz-profile-area"
+        class="rounded-2xl bg-black/30 p-3 text-sm">
+        Select a student to view profile
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ================= UPDATED FINANCE SUMMARY SECTION ================= -->
+<section class="hidden p-4 md:p-6 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl text-white transition-all duration-300" id="section-finance-summary">
+  
+  <!-- Header with Live Refresh & Actions -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-white/10 pb-4">
+    <div>
+      <h3 class="text-3xl font-black tracking-wide bg-gradient-to-r from-yellow-400 via-pink-500 to-indigo-400 bg-clip-text text-transparent flex items-center gap-2 animate-pulse">
+        📊 Advanced Finance Summary
+      </h3>
+      <p class="text-xs text-gray-300 mt-1">Real-time payment analytics & student billing insight</p>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+      <div class="flex items-center gap-1 bg-black/40 px-3 py-1.5 rounded-full text-xs border border-white/10">
+        <span class="inline-block w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+        <span id="fs-live-status">Live Sync Active</span>
+      </div>
+      <button onclick="initFinanceDashboard()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all transform active:scale-95">
+        🔄 Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Controls -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-black/20 p-4 rounded-2xl border border-white/5 mb-6">
+    <div>
+      <label class="block text-xs font-medium text-gray-300 mb-1">🔍 Search Student</label>
+      <input type="text" id="fs-filter-search" oninput="applyFinanceFilters()" placeholder="Name or Phone..." class="w-full text-black bg-white/90 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-300 mb-1">📦 Filter by Batch</label>
+      <select id="fs-filter-batch" onchange="applyFinanceFilters()" class="w-full text-black bg-white/90 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="">All Batches</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-300 mb-1">📅 Filter by Month</label>
+      <select id="fs-filter-month" onchange="applyFinanceFilters()" class="w-full text-black bg-white/90 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="">Current Month</option>
+        <option value="Jan">January</option>
+        <option value="Feb">February</option>
+        <option value="Mar">March</option>
+        <option value="Apr">April</option>
+        <option value="May">May</option>
+        <option value="Jun">June</option>
+        <option value="Jul">July</option>
+        <option value="Aug">August</option>
+        <option value="Sep">September</option>
+        <option value="Oct">October</option>
+        <option value="Nov">November</option>
+        <option value="Dec">December</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Animated Dashboard Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gradient-to-br from-emerald-500/20 to-teal-600/30 backdrop-blur-md border border-emerald-500/30 p-4 rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-300">💰 Total Income</div>
+      <div id="fs-card-total-income" class="text-3xl font-black mt-1">₹0</div>
+      <div class="text-[10px] text-emerald-200 mt-2 flex items-center gap-1">📈 <span id="fs-analytics-growth">+0% Growth index</span></div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-rose-500/20 to-orange-600/30 backdrop-blur-md border border-rose-500/30 p-4 rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300">
+      <div class="text-xs font-bold uppercase tracking-wider text-rose-300">⚠️ Total Due Amount</div>
+      <div id="fs-card-total-due" class="text-3xl font-black mt-1">₹0</div>
+      <div class="text-[10px] text-rose-200 mt-2 flex items-center gap-1">🎯 Target: <span id="fs-analytics-percent">0% Paid</span></div>
+    </div>
+
+    <div class="bg-gradient-to-br from-blue-500/20 to-indigo-600/30 backdrop-blur-md border border-blue-500/30 p-4 rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300">
+      <div class="text-xs font-bold uppercase tracking-wider text-blue-300">📊 Avg Collection</div>
+      <div id="fs-card-avg-collection" class="text-3xl font-black mt-1">₹0</div>
+      <div class="text-[10px] text-blue-200 mt-2">Calculated from active members</div>
+    </div>
+
+    <div class="bg-gradient-to-br from-purple-500/20 to-pink-600/30 backdrop-blur-md border border-purple-500/30 p-4 rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300">
+      <div class="text-xs font-bold uppercase tracking-wider text-purple-300">👥 Students Status</div>
+      <div id="fs-card-active-students" class="text-3xl font-black mt-1">0</div>
+      <div class="text-[10px] text-purple-200 mt-2"><span id="fs-paid-count">0</span> Paid | <span id="fs-due-count">0</span> Due</div>
+    </div>
+  </div>
+
+  <!-- Charts Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Monthly Income Trend -->
+    <div class="lg:col-span-2 bg-black/30 border border-white/10 p-4 rounded-2xl shadow-inner">
+      <h4 class="text-sm font-bold text-gray-200 mb-3 flex items-center gap-2">📈 Monthly Income Trend</h4>
+      <div class="h-64 relative">
+        <canvas id="fs-chart-trend"></canvas>
+      </div>
+    </div>
+    
+    <!-- Paid vs Due Pie Chart -->
+    <div class="bg-black/30 border border-white/10 p-4 rounded-2xl shadow-inner flex flex-col justify-between">
+      <h4 class="text-sm font-bold text-gray-200 mb-3 flex items-center gap-2">🥧 Paid vs Due Status</h4>
+      <div class="h-52 relative mx-auto w-full max-w-[200px]">
+        <canvas id="fs-chart-pie"></canvas>
+      </div>
+      <div class="text-center text-xs text-gray-300 mt-2" id="fs-pie-summary">Loading ratio...</div>
+    </div>
+  </div>
+
+  <!-- Calendar & Due Alert Panels -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Collection Calendar Mini View -->
+    <div class="bg-black/30 border border-white/10 p-4 rounded-2xl shadow-lg">
+      <h4 class="text-sm font-bold text-gray-200 mb-2 flex items-center gap-2">📅 Collection Calendar</h4>
+      <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-indigo-300 mb-2 border-b border-white/10 pb-1">
+        <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+      </div>
+      <div id="fs-calendar-grid" class="grid grid-cols-7 gap-1 text-xs">
+        <!-- Generates dynamically -->
+      </div>
+    </div>
+
+    <!-- Due Students Alert Panel -->
+    <div class="lg:col-span-2 bg-rose-950/20 border border-rose-500/20 p-4 rounded-2xl shadow-lg flex flex-col">
+      <h4 class="text-sm font-bold text-rose-300 mb-3 flex items-center justify-between">
+        <span>⚠️ Critical Due Alert Panel</span>
+        <span class="bg-rose-500/20 text-rose-300 text-[10px] px-2 py-0.5 rounded-full" id="fs-alert-count">0 Students</span>
+      </h4>
+      <div class="overflow-y-auto max-h-48 pr-1 space-y-2" id="fs-due-alerts-list">
+        <div class="text-xs text-gray-400 p-2 text-center">No immediate due alerts found.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard & Main Table List -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Top 10 Paying Students Leaderboard -->
+    <div class="bg-gradient-to-b from-amber-500/5 to-yellow-600/10 border border-amber-500/20 p-4 rounded-2xl shadow-lg">
+      <h4 class="text-sm font-bold text-amber-300 mb-3 flex items-center gap-2">🏆 Top 10 Paying Students</h4>
+      <ol class="space-y-2 text-xs" id="fs-leaderboard-list">
+        <li class="text-gray-400 text-center py-4">No payment history recorded.</li>
+      </ol>
+    </div>
+
+    <!-- Export & Detailed Breakdown Table -->
+    <div class="lg:col-span-2 bg-black/30 border border-white/10 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+        <h4 class="text-sm font-bold text-gray-200">📄 Detailed Data Export & Filters</h4>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button onclick="exportFinanceData('pdf')" class="flex-1 sm:flex-none bg-red-600/80 hover:bg-red-600 text-white text-xs px-3 py-2 rounded-xl transition-all">
+            📄 Export PDF
+          </button>
+          <button onclick="exportFinanceData('excel')" class="flex-1 sm:flex-none bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs px-3 py-2 rounded-xl transition-all">
+            📊 Export Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-white/10">
+        <table class="w-full text-left text-xs text-gray-200">
+          <thead class="bg-white/5 uppercase font-bold text-gray-300 border-b border-white/10">
+            <tr>
+              <th class="p-3">Student Name</th>
+              <th class="p-3">Batch</th>
+              <th class="p-3">Month</th>
+              <th class="p-3">Amount</th>
+              <th class="p-3">Status</th>
+            </tr>
+          </thead>
+          <tbody id="fs-table-body" class="divide-y divide-white/5">
+            <tr>
+              <td colspan="5" class="p-4 text-center text-gray-400">Apply filters or refresh to load records.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CDNs Required for Exporting Data inside Section -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+<!-- Manage Notes Section -->
+
+<!-- NOTICE BOARD ADMIN (Same as Index logic) -->
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-notice">
+  <h3 class="text-2xl font-bold mb-4">📢 Notice Board (Home Page)</h3>
+
+  <div class="grid md:grid-cols-2 gap-3 mb-4">
+    <input id="notice_title" class="border rounded px-3 py-2" placeholder="Notice Title"/>
+    <select id="notice_priority" class="border rounded px-3 py-2">
+      <option value="normal">Normal</option>
+      <option value="important">Important</option>
+      <option value="urgent">Urgent</option>
+    </select>
+  </div>
+
+  <textarea id="notice_message" class="border rounded px-3 py-2 w-full mb-3" rows="3"
+    placeholder="Notice message (Home page এ যেভাবে দেখাতে চান)"></textarea>
+
+  <div class="flex gap-3 items-center mb-4">
+    <label class="flex items-center gap-2">
+      <input type="checkbox" id="notice_active" checked>
+      <span>Active (Home page এ দেখাবে)</span>
+    </label>
+    <button class="bg-green-600 text-white px-4 py-2 rounded" onclick="addNotice()">➕ Add Notice</button>
+  </div>
+
+  <table class="w-full border text-left">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody id="notice_list"></tbody>
+  </table>
+</section>
+
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-advertisement">
+  <h3 class="text-2xl font-bold mb-2">📣 Advertisement Settings</h3>
+  <p class="text-sm text-gray-700 mb-4">এখানে বিজ্ঞাপনের লেখা ও বাটনের লিংক সেট করুন। Android App চালু হলে বিজ্ঞাপনটি দেখানো যাবে।</p>
+  <div class="space-y-4 max-w-2xl">
+    <label class="flex items-center gap-2 font-semibold"><input type="checkbox" id="ad-enabled"> বিজ্ঞাপন চালু রাখুন</label>
+    <div><label for="ad-title" class="block font-semibold mb-1">বিজ্ঞাপনের শিরোনাম</label><input id="ad-title" class="w-full border rounded px-3 py-2" placeholder="যেমন: নতুন ব্যাচে ভর্তি চলছে"></div>
+    <div><label for="ad-message" class="block font-semibold mb-1">বিজ্ঞাপনের বিবরণ</label><textarea id="ad-message" class="w-full border rounded px-3 py-2" rows="4" placeholder="বিজ্ঞাপনের বিস্তারিত লিখুন"></textarea></div>
+    <div><label for="ad-button-text" class="block font-semibold mb-1">বাটনের লেখা</label><input id="ad-button-text" class="w-full border rounded px-3 py-2" placeholder="যেমন: এখনই যোগাযোগ করুন"></div>
+    <div><label for="ad-button-url" class="block font-semibold mb-1">বাটনের লিংক (ঐচ্ছিক)</label><input id="ad-button-url" type="url" class="w-full border rounded px-3 py-2" placeholder="https://example.com"></div>
+    <div class="flex flex-wrap gap-3 items-center"><button type="button" id="ad-save-button" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded" onclick="saveAdvertisementSettings()">💾 Save Advertisement</button><span id="ad-save-status" class="text-sm"></span></div>
+  </div>
+</section>
+
+<section class="glass p-6 rounded-lg shadow-lg hidden" id="section-notes">
+<h3 class="text-xl font-bold mb-4">📚 Manage Notes (Google Drive links)</h3>
+<div class="flex gap-2 mb-4">
+<input class="border rounded px-3 py-2 flex-1" id="noteTitle" placeholder="Note Title (e.g. SSC GD - Set A)"/>
+<input class="border rounded px-3 py-2 flex-1" id="noteLink" placeholder="Google Drive share link (paste here)"/>
+<button class="bg-green-500 text-gray-100 px-3 rounded" onclick="addNote()">➕ Add</button>
+</div>
+<table class="w-full text-left border">
+<thead><tr><th>Title</th><th>Link</th><th>Delete</th></tr></thead>
+<tbody id="notes-list"></tbody>
+</table>
+</section>
+</main>
+<!-- Firebase & Scripts -->
+
+<script>
+const AUTHORIZED_ADMINS = ["admin@email.com"];
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  where,
+  getDoc,
+  updateDoc,
+  writeBatch,
+  setDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+    import { getDatabase, ref as dbRef, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCR5rqthBh0vX0yLOcOG3b9xJiKbYtzdxU",
+      authDomain: "target-zone-8fffd.firebaseapp.com",
+      projectId: "target-zone-8fffd",
+      storageBucket: "target-zone-8fffd.appspot.com",
+      messagingSenderId: "667579216123",
+      appId: "1:667579216123:web:37bb1fcc724743073d005e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const storage = getStorage(app);
+    const rtdb = getDatabase(app);
+
+    // Advertisement popup settings (Firestore: appSettings/advertisementPopup)
+    window.loadAdvertisementSettings = async function(){
+      const status = document.getElementById("ad-save-status");
+      try {
+        const snap = await getDoc(doc(db, "appSettings", "advertisementPopup"));
+        const data = snap.exists() ? snap.data() : {};
+        document.getElementById("ad-enabled").checked = data.enabled === true;
+        document.getElementById("ad-title").value = data.title || "";
+        document.getElementById("ad-message").value = data.message || "";
+        document.getElementById("ad-button-text").value = data.buttonText || "";
+        document.getElementById("ad-button-url").value = data.buttonUrl || "";
+        if(status) status.textContent = snap.exists() ? "সেটিংস লোড হয়েছে" : "এখনও কোনো বিজ্ঞাপন সেট করা হয়নি";
+      } catch(error) {
+        console.error("Advertisement settings load failed:", error);
+        if(status) status.textContent = "লোড করা যায়নি: " + (error.message || error);
+      }
+    };
+
+    window.saveAdvertisementSettings = async function(){
+      const status = document.getElementById("ad-save-status");
+      const button = document.getElementById("ad-save-button");
+      const url = document.getElementById("ad-button-url").value.trim();
+      if(url && !/^https?:\/\//i.test(url)){
+        if(status) status.textContent = "লিংকটি https:// অথবা http:// দিয়ে শুরু করুন।";
+        return;
+      }
+      const payload = {
+        enabled: document.getElementById("ad-enabled").checked,
+        title: document.getElementById("ad-title").value.trim(),
+        message: document.getElementById("ad-message").value.trim(),
+        buttonText: document.getElementById("ad-button-text").value.trim(),
+        buttonUrl: url,
+        displayFrequency: "every_app_open",
+        delaySeconds: 0,
+        updatedAt: serverTimestamp()
+      };
+      try {
+        if(button) button.disabled = true;
+        if(status) status.textContent = "সেভ হচ্ছে...";
+        await setDoc(doc(db, "appSettings", "advertisementPopup"), payload, {merge:true});
+        if(status) status.textContent = "✅ বিজ্ঞাপনের সেটিংস সেভ হয়েছে।";
+      } catch(error) {
+        console.error("Advertisement settings save failed:", error);
+        if(status) status.textContent = "❌ সেভ হয়নি: " + (error.message || error);
+      } finally {
+        if(button) button.disabled = false;
+      }
+    };
+
+    let currentCategory="";
+
+    onAuthStateChanged(auth,user=>{
+      if(!user){ window.location.href="index.html"; }
+      else{ document.getElementById("admin-email").textContent="👤 "+user.email; }
+    });
+
+    window.logout=async()=>{ await signOut(auth); window.location.href="index.html"; };
+
+    // Load Questions
+// --- প্রতিস্থাপন করুন: window.loadQuestions = async (...) {...} ---
+    // ================= CSV Upload =================
+window.uploadCSV = function () {
+
+    if (!currentCategory || !currentSubcategory) {
+        alert("আগে Category এবং Subcategory নির্বাচন করুন");
+        return;
+    }
+
+    const file = document.getElementById("csvFile").files[0];
+
+    if (!file) {
+        alert("CSV File নির্বাচন করুন");
+        return;
+    }
+
+    document.getElementById("csvProgress").innerHTML =
+        "⏳ CSV পড়া হচ্ছে...";
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+
+        complete: async function(result) {
+
+            const rows = result.data;
+            if (rows.length === 0) {
+    alert("CSV File খালি!");
+    return;
+}
+
+const required = ["question", "option1", "option2", "option3", "option4", "answer"];
+
+for (const col of required) {
+    if (!(col in rows[0])) {
+        alert("CSV-তে '" + col + "' কলাম নেই");
+        return;
+    }
+        }
+
+            document.getElementById("csvProgress").innerHTML =
+                "মোট " + rows.length + " টি প্রশ্ন পাওয়া গেছে...";
+
+            const collName = `${currentCategory}__${currentSubcategory}`;
+
+let added = 0;
+let skipped = 0;
+
+let batch = writeBatch(db);
+let batchCount = 0;
+
+for (const row of rows) {
+
+    const question = (row.question || "").trim();
+
+    const options = [
+        (row.option1 || "").trim(),
+        (row.option2 || "").trim(),
+        (row.option3 || "").trim(),
+        (row.option4 || "").trim()
+    ];
+
+    const answer = (row.answer || "").trim();
+
+    if (!question) continue;
+
+    // Duplicate Check
+    const q = query(
+        collection(db, collName),
+        where("question", "==", question)
+    );
+
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+        skipped++;
+        continue;
+    }
+
+    const ref = doc(collection(db, collName));
+
+    batch.set(ref, {
+        id: Date.now() + added,
+        category: currentCategory,
+        subcategory: currentSubcategory,
+        question,
+        options,
+        answer,
+        photo: "",
+        createdAt: new Date()
+    });
+    batchCount++;
+
+if (batchCount === 500) {
+    await batch.commit();
+    batch = writeBatch(db);
+    batchCount = 0;
+}
+
+    added++;
+
+    document.getElementById("csvProgress").innerHTML =
+        `Uploading ${added}/${rows.length}`;
+}
+
+if (batchCount > 0) {
+    await batch.commit();
+}
+            document.getElementById("csvFile").value = "";
+
+document.getElementById("csvProgress").innerHTML =
+`✅ Upload Complete<br>
+Added: ${added}<br>
+Skipped: ${skipped}`;
+
+document.getElementById("csvProgress").innerHTML =
+`✅ Added : ${added} <br>⛔ Skipped : ${skipped}`;
+
+loadQuestions(collName);
+
+        }
+
+    });
+
+};
+window.loadQuestions = async (categoryOrColl) => {
+  if (!categoryOrColl) return;
+  const table = document.getElementById("questions-list");
+  table.innerHTML = "<tr><td colspan='3'>লোড হচ্ছে...</td></tr>";
+
+  // নোট: caller কখনও base category (e.g. "ssc"), কখনও composite (e.g. "ssc__math") পাঠাতে পারে
+  let collToQuery = categoryOrColl;
+
+  if (typeof categoryOrColl === "string" && categoryOrColl.includes("__")) {
+    // composite এসেছে: split করে globals sync করে নাও
+    const parts = categoryOrColl.split("__");
+    currentCategory = parts[0] || "";
+    currentSubcategory = parts[1] || "";
+    collToQuery = categoryOrColl;
+    const subSelect = document.getElementById("subcategory");
+    if (subSelect) subSelect.value = currentSubcategory;
+    const catSelect = document.getElementById("category");
+    if (catSelect) catSelect.value = currentCategory;
+  } else {
+    // base category এসেছে
+    currentCategory = categoryOrColl;
+    // যদি আগে থেকে currentSubcategory থাকে, তখন composite collection থেকে লোড করো
+    if (currentSubcategory) {
+      collToQuery = `${currentCategory}__${currentSubcategory}`;
+    } else {
+      collToQuery = currentCategory;
+    }
+    const catSelect = document.getElementById("category");
+    if (catSelect) catSelect.value = currentCategory;
+  }
+
+  try {
+    const snapshot = await getDocs(collection(db, collToQuery));
+    let rows = "";
+    snapshot.forEach(docSnap => {
+      const q = docSnap.data();
+      rows += `
+        <tr>
+          <td>${q.question || ""}${q.photo?`<br><img src="${q.photo}" class="w-20 cursor-pointer" onclick="openModal('${q.photo}')">`:""}</td>
+          <td>${q.answer || ""}</td>
+          <td><button onclick="deleteQuestion('${collToQuery}','${docSnap.id}')" class="bg-red-500 text-gray-100 px-2 py-1 rounded">🗑</button></td>
+        </tr>
+      `;
+    });
+    table.innerHTML = rows || "<tr><td colspan='3'>কোনো প্রশ্ন নেই</td></tr>";
+  } catch (err) {
+    console.error("loadQuestions error:", err);
+    table.innerHTML = `<tr><td colspan='3'>লোডে সমস্যা: ${err.message || err}</td></tr>`;
+  }
+};
+// --- end loadQuestions replacement ---
+    // Delete Question
+    window.deleteQuestion=async(cat,id)=>{ await deleteDoc(doc(db,cat,id)); loadQuestions(cat); };
+
+    // Modal Preview
+    window.openModal=(url)=>{
+      const modal=document.createElement("div");
+      modal.className="modal";
+      modal.innerHTML=`<img src="${url}" onclick="this.parentElement.remove()">`;
+      document.body.appendChild(modal);
+    }
+
+    // Show Section
+    window.showSection = async (id) => {
+  document.querySelectorAll("section").forEach(sec => sec.classList.add("hidden"));
+  const el = document.getElementById("section-" + id);
+  if (el) el.classList.remove("hidden");
+  // load hooks
+  if (id === "notes") await loadNotes();
+  if (id === "results") await loadResults();
+  if (id === "users") await loadUsers();
+  if (id === "submissions") await loadSubmissions();
+  if (id === "advertisement") await window.loadAdvertisementSettings();
+  
+  if (id === 'registration') await populateRegistrationBatches();
+// finance handled elsewhere by click cards
+};
+
+    // Load Results with Pie Chart
+    async function loadResults(){
+      const table=document.getElementById("results-list");
+      table.innerHTML="<tr><td colspan='4'>লোড হচ্ছে...</td></tr>";
+      const q=query(collection(db,"results"),orderBy("submittedAt","desc"));
+      const snapshot=await getDocs(q);
+      let rows="",correct=0,wrong=0,unattempted=0;
+      snapshot.forEach(docSnap=>{
+        const r=docSnap.data();
+        correct+=r.correct||0;
+        wrong+=r.wrong||0;
+        unattempted+=r.unattempted||0;
+        rows+=`<tr><td>${r.email}</td><td>${r.exam}</td><td>${r.score}/${r.total}</td><td>${r.submittedAt ? new Date(r.submittedAt.seconds*1000).toLocaleString():"N/A"}</td></tr>`;
+      });
+      table.innerHTML=rows||"<tr><td colspan='4'>কোনো রেজাল্ট নেই</td></tr>";
+      new Chart(document.getElementById("resultsChart"),{
+        type:"pie",
+        data:{labels:["Correct","Wrong","Unattempted"],datasets:[{data:[correct,wrong,unattempted],backgroundColor:["#4caf50","#f44336","#9e9e9e"]}]}
+      });
+    }
+
+    // Music Toggle
+    const music=document.getElementById("bg-music");
+    const musicBtn=document.getElementById("music-btn");
+    // Ensure music starts paused & muted by default
+    try{ music.pause(); music.muted = true; }catch(e){}
+    musicBtn.textContent = "🔊 Play Sound";
+    musicBtn.addEventListener("click", ()=>{
+      try{
+        if(music.paused || music.muted){
+          music.muted = false;
+          const playPromise = music.play();
+          if(playPromise && typeof playPromise.then === 'function') playPromise.catch(()=>{});
+          musicBtn.textContent = "🔇 Mute Sound";
+        } else {
+          music.pause();
+          music.muted = true;
+          musicBtn.textContent = "🔊 Play Sound";
+        }
+      }catch(e){ console.warn('music toggle error', e); }
+    });
+
+    // ---- Admin additions: clean loadUsers & loadSubmissions ----
+    async function loadUsers(){
+      const table = document.getElementById("users-list");
+      if(!table) return;
+      table.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+      try {
+        const querySnapshot = await getDocs(collection(db, "users"));
+        let rows = "";
+        querySnapshot.forEach(docSnap => {
+          const d = docSnap.data() || {};
+          rows += `<tr>
+            <td>${d.name || ""}</td>
+            <td>${d.email || ""}</td>
+            <td>${d.whatsapp || ""}</td>
+            <td>${d.education || ""}</td>
+            <td>${d.status || ""}</td>
+          </tr>`;
+        });
+        table.innerHTML = rows || "<tr><td colspan='5'>No users found</td></tr>";
+      } catch (error) {
+        console.error("Error loading users: ", error);
+        table.innerHTML = "<tr><td colspan='5'>Error loading users</td></tr>";
+      }
+    }
+
+    function formatTimestamp(ts){
+      if(!ts) return "";
+      try{
+        if(typeof ts === 'number') return new Date(ts).toLocaleString();
+        if(ts.seconds) return new Date(ts.seconds*1000).toLocaleString();
+        return new Date(ts).toLocaleString();
+      }catch(e){
+        return "";
+      }
+    }
+
+// === Add Batch & Student Management ===
+
+window.showAddBatchForm = () => {
+  document.getElementById("batch-form").classList.toggle("hidden");
+};
+
+window.addBatch = async () => {
+  const name = document.getElementById("new-batch-name").value.trim();
+  if (!name) return showRegistrationAlert();
+await addDoc(collection(db, "batches"), { name, createdAt: Date.now() });
+  document.getElementById("new-batch-name").value = "";
+  document.getElementById("batch-form").classList.add("hidden");
+  loadBatches();
+  showRegistrationAlert();
+};
+
+let currentBatchId = null;
+
+window.showAddStudentForm = () => {
+  document.getElementById("student-form").classList.toggle("hidden");
+};
+
+window.addStudent = async () => {
+  if (!currentBatchId) return showRegistrationAlert();
+const name = document.getElementById("student-name").value.trim();
+  const phone = document.getElementById("student-phone").value.trim();
+  if (!name || !phone) return showRegistrationAlert();
+await addDoc(collection(db, "students"), {
+    name, phone, batch: currentBatchId, createdAt: Date.now()
+  });
+
+  document.getElementById("student-name").value = "";
+  document.getElementById("student-phone").value = "";
+  document.getElementById("student-form").classList.add("hidden");
+  loadStudents(currentBatchId);
+  showRegistrationAlert();
+};
+
+// patch loadStudents to remember batchId
+const _oldLoadStudents = window.loadStudents;
+window.loadStudents = async (batchId) => {
+  currentBatchId = batchId;
+  return _oldLoadStudents(batchId);
+};
+// === end Add Batch & Student ===
+
+
+// Helper to hide all
+function hideFinancePanels(){
+  ["salary-panel","birthday-panel","attendance-panel","reports-panel"]
+  .forEach(id=>document.getElementById(id).classList.add("hidden"));
+}
+    let currentSubcategory = "";
+
+// সাবক্যাটাগরি লোড
+window.loadSubcategories = async (category) => {
+  currentCategory = category;
+  const subSelect = document.getElementById("subcategory");
+  subSelect.innerHTML = "<option value=''>--Select Subcategory--</option>";
+  if (!category) return;
+
+  const q = query(collection(db, "subcategories"), where("category", "==", category));
+  const snapshot = await getDocs(q);
+
+  snapshot.forEach(docSnap => {
+    const sub = docSnap.data();
+    const opt = document.createElement("option");
+    opt.value = sub.id;          // ✅ সাবক্যাটাগরির id হবে কালেকশন নাম
+    opt.textContent = sub.name;
+    subSelect.appendChild(opt);
+  });
+};
+
+// নতুন সাবক্যাটাগরি যোগ
+window.addSubcategory = async () => {
+  const name = document.getElementById("new-subcat").value.trim();
+  if (!name || !currentCategory) {
+    return showRegistrationAlert();
+}
+
+  const id = name.toLowerCase().replace(/\s+/g, "_");
+
+  await addDoc(collection(db, "subcategories"), { 
+    id, 
+    name, 
+    category: currentCategory 
+  });
+
+  showRegistrationAlert();
+document.getElementById("new-subcat").value = "";
+  await loadSubcategories(currentCategory);
+
+  // auto-select
+  // auto-select the new subcategory and immediately load its questions
+  document.getElementById("subcategory").value = id;
+  currentSubcategory = id;
+  // load questions for the newly created subcategory
+  loadQuestions(`${currentCategory}__${currentSubcategory}`);
+}
+
+// সাবক্যাটাগরি সিলেক্ট করলে মনে রাখা
+document.getElementById("subcategory").addEventListener("change", (e) => {
+  currentSubcategory = e.target.value;
+  if (!currentCategory || !currentSubcategory) return;
+
+  // নতুন কম্পোজিট কালেকশন নাম বানাও
+  const collName = `${currentCategory}__${currentSubcategory}`;
+  // এখন ওই কম্পোজিট কালেকশন থেকে প্রশ্ন লোড হবে
+  loadQuestions(collName);
+});
+
+// প্রশ্ন যোগ করা (সরাসরি সাবক্যাটাগরি কালেকশনে যাবে)
+window.addQuestion = async () => {
+  if (!currentCategory || !currentSubcategory) {
+    return showRegistrationAlert();
+}
+
+  const collName = `${currentCategory}__${currentSubcategory}`;
+  const quesEl = document.getElementById("question");
+  const ques = quesEl ? quesEl.value.trim() : "";
+  const opts = [1,2,3,4].map(i => {
+    const el = document.getElementById("option"+i);
+    return el ? el.value.trim() : "";
+  });
+  const correctRadio = document.querySelector('input[name="correct"]:checked');
+  const correctIndex = correctRadio ? parseInt(correctRadio.value, 10) : NaN;
+  const photoFile = document.getElementById("photo")?.files[0];
+
+  if (!ques || opts.some(o => !o) || Number.isNaN(correctIndex)) {
+    return showRegistrationAlert();
+}
+
+  let photoURL = "";
+  try {
+    if (photoFile) {
+      const storageRef = ref(storage, `questions/${Date.now()}-${photoFile.name}`);
+      await uploadBytes(storageRef, photoFile);
+      photoURL = await getDownloadURL(storageRef);
+    }
+
+    const docRef = await addDoc(collection(db, collName), {
+      id: Date.now(),
+      category: currentCategory,
+      subcategory: currentSubcategory,
+      question: ques,
+      options: opts,
+      answer: opts[correctIndex],
+      photo: photoURL || "",
+      createdAt: new Date()
+    });
+
+    console.log("Question added:", docRef.id, "to", collName);
+    showRegistrationAlert();
+} catch (e) {
+    console.error("Add question failed:", e);
+    alert("❌ প্রশ্ন যোগ করা যায়নি: " + (e.message || e));
+    return;
+  }
+
+  // 👉 ফর্ম রিসেট না করে শুধু ইনপুট ফিল্ড ক্লিয়ার
+  const qForm = document.getElementById("question-form");
+  if (qForm) {
+    const qEl = qForm.querySelector('#question');
+    if (qEl) qEl.value = '';
+    ['option1','option2','option3','option4'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.querySelectorAll('input[name="correct"]').forEach(r => r.checked = false);
+    const photoInput = document.getElementById('photo');
+    if (photoInput) photoInput.value = '';
+  }
+
+  // 👉 শেষে টেবিল রিফ্রেশ
+  loadQuestions(collName);
+    }
+    // ---- end additions ----
+// ================= Manage Notes (Drive links) ===================
+window.addNote = async () => {
+  try {
+    const title = document.getElementById("noteTitle").value.trim();
+    const url = document.getElementById("noteLink").value.trim();
+    if (!title || !url) return showRegistrationAlert();
+// OPTIONAL: শুধু admin কে allow করতে চান তাহলে নিচের চেক আনকমেন্ট করুন এবং admin-email পরিবর্তন করুন
+    // const user = auth.currentUser;
+    // if (!user || user.email !== "youradmin@example.com") return showRegistrationAlert();
+await addDoc(collection(db, "driveLinks"), {
+      title,
+      url,
+      createdAt: Date.now()
+    });
+
+    document.getElementById("noteTitle").value = "";
+    document.getElementById("noteLink").value = "";
+    loadNotes();
+    showRegistrationAlert();
+} catch (e) {
+    console.error("addNote error:", e);
+    alert("Error: " + (e.message || e));
+  }
+};
+
+window.loadNotes = async () => {
+  const table = document.getElementById("notes-list");
+  if (!table) return;
+  table.innerHTML = "<tr><td colspan='3'>লোড হচ্ছে...</td></tr>";
+  try {
+    const qSnap = await getDocs(query(collection(db, "driveLinks"), orderBy("createdAt", "desc")));
+    let rows = "";
+    qSnap.forEach(docSnap => {
+      const d = docSnap.data() || {};
+      rows += `<tr>
+        <td>${(d.title)||""}</td>
+        <td><a href="${(d.url)||"#"}" target="_blank" class="text-blue-500 underline">Open</a></td>
+        <td><button onclick="deleteNote('${docSnap.id}')" class="bg-red-500 text-gray-100 px-2 py-1 rounded">🗑</button></td>
+      </tr>`;
+    });
+    table.innerHTML = rows || "<tr><td colspan='3'>কোনো Note নাই</td></tr>";
+  } catch (e) {
+    console.error("loadNotes error:", e);
+    table.innerHTML = `<tr><td colspan='3'>লোডে সমস্যা: ${e.message || e}</td></tr>`;
+  }
+};
+
+window.deleteNote = async (id) => {
+  if(!confirm("Are you sure to delete this note?")) return;
+  try {
+    await deleteDoc(doc(db, "driveLinks", id));
+    loadNotes();
+  } catch (e) {
+    console.error("deleteNote error:", e);
+    alert("Delete failed: " + (e.message || e));
+  }
+};
+
+// ================= NOTICE BOARD (MATCH INDEX) =================
+window.addNotice = async () => {
+  const title = notice_title.value.trim();
+  const message = notice_message.value.trim();
+  const priority = notice_priority.value;
+  const active = notice_active.checked;
+
+  if(!title || !message){
+    alert("Title এবং Message দরকার");
+    return;
+  }
+
+  await addDoc(collection(db,"notices"),{
+    title,
+    message,
+    priority,
+    active,
+    createdAt: Date.now()
+  });
+
+  notice_title.value="";
+  notice_message.value="";
+  notice_priority.value="normal";
+  notice_active.checked=true;
+
+  loadNotices();
+};
+
+window.loadNotices = async () => {
+  const tbody = document.getElementById("notice_list");
+  if(!tbody) return;
+  tbody.innerHTML="<tr><td colspan='4'>Loading...</td></tr>";
+
+  const qSnap = await getDocs(query(collection(db,"notices"), orderBy("createdAt","desc")));
+  let rows="";
+  qSnap.forEach(docSnap=>{
+    const n = docSnap.data();
+    rows+=`
+      <tr>
+        <td>${n.title||""}</td>
+        <td>${n.priority||"normal"}</td>
+        <td>${n.active ? "Active" : "Hidden"}</td>
+        <td>
+          <button class="bg-red-600 px-2 py-1 rounded text-white"
+            onclick="deleteNotice('${docSnap.id}')">🗑</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = rows || "<tr><td colspan='4'>No notice</td></tr>";
+};
+
+window.deleteNotice = async (id) => {
+  if(!confirm("Delete this notice?")) return;
+  await deleteDoc(doc(db,"notices",id));
+  loadNotices();
+};
+// =============================================================
+
+// ==============================================================
+
+
+let __editStudentId = null;
+
+window.tz_openEditModal = async function(studentId){
+  __editStudentId = studentId;
+  const snap = await getDoc(doc(db,"students",studentId));
+  if(!snap.exists()) return;
+  const d = snap.data();
+  document.getElementById("edit-name").value = d.name || "";
+  document.getElementById("edit-phone").value = d.phone || "";
+  document.getElementById("edit-whatsapp").value = d.whatsapp || "";
+  document.getElementById("edit-address").value = d.address || "";
+    document.getElementById("edit-dob").value = d.dob || "";
+  document.getElementById("tz-edit-modal").classList.remove("hidden");
+};
+
+document.addEventListener("click", async (e)=>{
+  if(e.target.id==="edit-cancel"){
+    document.getElementById("tz-edit-modal").classList.add("hidden");
+  }
+  if(e.target.id==="edit-save"){
+    if(!__editStudentId) return;
+    await updateDoc(doc(db,"students",__editStudentId),{
+      name: document.getElementById("edit-name").value,
+      phone: document.getElementById("edit-phone").value,
+      whatsapp: document.getElementById("edit-whatsapp").value,
+      address: document.getElementById("edit-address").value,
+        dob: document.getElementById("edit-dob").value,
+    });
+    document.getElementById("tz-edit-modal").classList.add("hidden");
+    alert("Student Updated");
+  }
+});
+
+// ===== TZ FINANCE FUNCTIONS (scoped, module) =====
+
+async function tz_loadBatches(){
+  try{
+    const q = query(collection(db,"batches"), orderBy("name"));
+    const snap = await getDocs(q);
+    const container = document.getElementById("tz-batch-list");
+    if(!container){ console.error('tz-batch-list element not found'); return; }
+    container.innerHTML = "";
+    if(snap.empty){ container.innerHTML = "No batches"; return; }
+    snap.forEach(docSnap=>{
+      const b = docSnap.data();
+      const batchId = docSnap.id; // capture id to avoid closure pitfalls
+      const wrapper = document.createElement("div");
+      wrapper.className = "w-full text-left px-3 py-2 tz-glass hover:bg-white/10 flex justify-between items-center text-gray-100";
+      const nameBtn = document.createElement("button");
+      nameBtn.className = "flex-1 text-left";
+      nameBtn.innerHTML = `<span>${b.name||batchId}</span>`;
+      nameBtn.addEventListener('click', async (e)=>{ 
+        e.stopPropagation(); 
+        try{
+          await tz_loadStudents(batchId);
+        }catch(err){
+          console.error('tz_loadStudents failed:', err);
+          const list = document.getElementById('tz-student-list');
+          if(list) list.innerHTML = `<div class="p-3 text-red-400">Error loading students: ${err.message||err}</div>`;
+        }
+      });
+      const delBtn = document.createElement("button");
+      delBtn.className = "bg-red-600 px-2 py-1 rounded ml-2 text-sm";
+      delBtn.title = "Delete batch";
+      delBtn.innerHTML = "🗑";
+      delBtn.addEventListener('click', async (e)=>{ 
+        e.stopPropagation();
+        if(!confirm('Delete this batch?')) return;
+        try{ 
+          await deleteDoc(doc(db,'batches',batchId)); 
+          alert('Batch deleted'); 
+          await tz_loadBatches(); 
+        } catch(err){ 
+          console.error('delete batch', err); 
+          alert('Delete failed: '+(err.message||err)); 
+        } 
+      });
+      wrapper.appendChild(nameBtn);
+      wrapper.appendChild(delBtn);
+      container.appendChild(wrapper);
+    });
+    await tz_populateBatchSelect();
+  }catch(e){ console.error('tz_loadBatches', e); const el=document.getElementById('tz-batch-list'); if(el) el.innerText='Error'; }
+}
+
+async function tz_populateBatchSelect(){
+  try{
+    const sel = document.getElementById("tz-student-batch-select");
+    if(!sel) return;
+    sel.innerHTML = '<option value="">-- Select Batch --</option>';
+    const snap = await getDocs(query(collection(db,"batches"), orderBy("name")));
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = d.name || docSnap.id;
+      sel.appendChild(opt);
+    });
+  }catch(e){ console.error("tz_populateBatchSelect", e); }
+}
+
+// show/hide batch form
+document.getElementById("tz-show-add-batch")?.addEventListener("click", ()=>{
+  const f = document.getElementById("tz-batch-form");
+  if(f) f.classList.toggle("hidden");
+});
+
+// save batch
+document.getElementById("tz-save-batch")?.addEventListener("click", async ()=>{
+  const name = document.getElementById("tz-new-batch-name").value.trim();
+  if(!name){ showRegistrationAlert();
+return; }
+  try{
+    await addDoc(collection(db,"batches"), { name, createdAt: Date.now() });
+    document.getElementById("tz-new-batch-name").value = "";
+    await tz_loadBatches();
+    showRegistrationAlert();
+}catch(e){ console.error(e); showRegistrationAlert();
+}
+});
+
+// load students for a batch
+
+async function tz_loadStudents(batchId){
+  const list = document.getElementById("tz-student-list");
+  if(!list){ console.error('tz-student-list not found'); return; }
+  list.innerHTML = "Loading...";
+  try{
+    const q = query(collection(db,"students"), where("batch","==",batchId), orderBy("createdAt"));
+    const snap = await getDocs(q);
+    list.innerHTML = "";
+    if(!snap || snap.empty){ list.innerHTML = "No students"; return; }
+    snap.forEach(docSnap=>{
+      const s = docSnap.data();
+      const studentId = docSnap.id;
+      const el = document.createElement("div");
+      el.className = "p-3 tz-glass flex justify-between items-center text-gray-100";
+      const infoDiv = document.createElement("div");
+      infoDiv.innerHTML = `<div class="font-semibold">${s.name||"(No name)"}</div><div class="text-xs">${s.phone||""}</div>`;
+      const btnsDiv = document.createElement("div");
+      btnsDiv.className = "flex gap-2";
+      const openBtn = document.createElement("button");
+      openBtn.className = "bg-blue-500 px-2 py-1 rounded text-gray-100";
+      openBtn.textContent = "Open";
+      const editBtn = document.createElement("button");
+      editBtn.className = "bg-yellow-400 px-2 py-1 rounded text-black";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", ()=> tz_openEditModal(studentId));
+      btnsDiv.appendChild(editBtn);
+      openBtn.addEventListener('click', ()=> tz_openStudentFinance(studentId));
+      const delBtn = document.createElement("button");
+      delBtn.className = "bg-red-600 px-2 py-1 rounded text-gray-100";
+      delBtn.textContent = "🗑";
+      delBtn.title = "Delete student";
+      delBtn.addEventListener('click', async ()=>{
+        if(!confirm('Delete this student?')) return;
+        try{ 
+          await deleteDoc(doc(db,'students',studentId)); 
+          alert('Student deleted'); 
+          await reorderRolls(batchId); 
+          await tz_loadStudents(batchId); 
+        }catch(err){ 
+          console.error('deleteStudent', err); 
+          alert('Delete failed: '+(err.message||err)); 
+        } 
+      });
+      btnsDiv.appendChild(openBtn);
+      btnsDiv.appendChild(delBtn);
+      el.appendChild(infoDiv);
+      el.appendChild(btnsDiv);
+      list.appendChild(el);
+    });
+  }catch(e){ console.error('tz_loadStudents', e); list.innerHTML = `<div class="p-3 text-red-400">Error loading students: ${e.message||e}</div>`; }
+}
+
+// show student modal
+document.getElementById("tz-show-add-student")?.addEventListener("click", async ()=>{
+  await tz_populateBatchSelect();
+  const modal = document.getElementById("tz-student-modal");
+  if(modal) modal.classList.remove("hidden");
+});
+document.getElementById("tz-close-student-form")?.addEventListener("click", ()=>{ const m=document.getElementById("tz-student-modal"); if(m) m.classList.add("hidden"); });
+document.getElementById("tz-cancel-student-btn")?.addEventListener("click", ()=>{ const m=document.getElementById("tz-student-modal"); if(m) m.classList.add("hidden"); });
+
+// save student
+document.getElementById("tz-save-student-btn")?.addEventListener("click", async ()=>{
+  const name = document.getElementById("tz-student-name").value.trim();
+  const phone = document.getElementById("tz-student-phone").value.trim();
+  const whatsapp = document.getElementById("tz-student-whatsapp").value.trim();
+  const email = document.getElementById("tz-student-email").value.trim();
+  const father = document.getElementById("tz-student-father").value.trim();
+  const address = document.getElementById("tz-student-address").value.trim();
+  const education = document.getElementById("tz-student-education").value.trim();
+  const batch = document.getElementById("tz-student-batch-select").value;
+  const dob = document.getElementById("tz-student-dob").value;
+  // photo upload removed
+    // const photoFile = document.getElementById("tz-student-photo").files[0];
+  if(!name||!phone||!batch){ showRegistrationAlert();
+return; }
+  try{
+    let photoURL = "";
+    if(false){ // photo disabled
+      const storageRef = ref(storage, `students/${Date.now()}-${photoFile.name}`);
+      await uploadBytes(storageRef, photoFile);
+      photoURL = await getDownloadURL(storageRef);
+    }
+    const docRef = await addDoc(collection(db,"students"), { name, phone, whatsapp, email, father, address, education, batch, dob, photoURL, createdAt: Date.now() });
+    await updateDoc(doc(db,"students",docRef.id), { studentAutoId: "STU-"+docRef.id.slice(-6).toUpperCase() });
+    showRegistrationAlert();
+const modal = document.getElementById("tz-student-modal"); if(modal) modal.classList.add("hidden");
+    await tz_loadStudents(batch);
+  }catch(e){ console.error("tz_saveStudent", e); alert("Error adding student: " + (e.message || e)); }
+});
+
+// open student finance/profile (expose on window so onclick can call)
+window.tz_openStudentFinance = async function(studentId){
+  try{
+    const docRef = doc(db,"students",studentId);
+    const snap = await getDoc(docRef);
+    if(!snap.exists()){ showRegistrationAlert();
+return; }
+    const data = snap.data();
+    // replaced by bottom sheet
+
+    let photo = ""; // photo disabled
+    let info = `<div class="flex items-center gap-3"><div><div class="font-bold text-lg">${data.name||""}</div><div class="text-sm">${data.studentAutoId||studentId}</div><div class="text-sm">${data.batch||""}</div></div></div>
+    <div class="mt-2 text-sm"><p><b>Phone:</b> ${data.phone||""}</p><p><b>WhatsApp:</b> ${data.whatsapp||""}</p><p><b>Email:</b> ${data.email||""}</p><p><b>Father:</b> ${data.father||""}</p><p><b>DOB:</b> ${data.dob||""}</p></div>
+    <hr class="my-3"/>
+<h5 class="font-semibold mb-2">💳 Monthly Payments</h5>
+
+<div id="tz-payment-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4"></div>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+  <select id="tz-pay-month" class="rounded-xl px-3 py-2 bg-white/10 backdrop-blur-xl"></select>
+  <input id="tz-pay-amount" type="number" placeholder="Amount (₹)" class="rounded-xl px-3 py-2 bg-white/10 backdrop-blur-xl"/>
+  <input id="tz-pay-note" placeholder="Note" class="rounded-xl px-3 py-2 bg-white/10 backdrop-blur-xl"/>
+  <button id="tz-pay-add"
+    class="bg-gradient-to-r from-[#ff7e5f] to-[#6a11cb] text-white font-semibold rounded-xl px-4 py-2 active:scale-95">
+    ➕ Add Payment
+  </button>
+</div>
+`;
+    tz_openSheet(info);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const sel = document.getElementById("tz-pay-month");
+    sel.innerHTML = months.map(m => {
+      const paid = !!data[m];
+      return `<option value="${m}" ${paid ? "disabled" : ""}>${m}${paid ? " ✅" : ""}</option>`;
+    }).join('');
+    const cardWrap = document.getElementById("tz-payment-cards");
+    cardWrap.innerHTML = "";
+    months.forEach(m=>{
+      const entry = data[m] || "";
+      const amt = entry && typeof entry === 'object' ? entry.amount : entry;
+      const note = entry && typeof entry === 'object' ? entry.note : "";
+      const card = document.createElement("div");
+      card.className = `rounded-2xl p-4 shadow-xl ${amt ? "bg-green-600/20 border border-green-400/40" : "bg-white/10 border border-white/10"}`;
+      card.innerHTML = `
+        <div class="flex justify-between items-center mb-1">
+          <div class="font-semibold">${m}</div>
+          ${amt ? "<span class='text-xs bg-green-600 px-2 py-1 rounded-full'>Paid</span>" :
+                  "<span class='text-xs bg-red-600 px-2 py-1 rounded-full'>Due</span>"}
+        </div>
+        <div class="text-2xl font-bold">${amt ? "₹"+amt : "--"}</div>
+        ${note ? `<div class='text-xs mt-1 opacity-80'>📝 ${note}</div>` : ""}
+        <div class="mt-2">
+          ${amt ? `<button class="bg-red-600 px-3 py-1 rounded text-sm" data-month="${m}">Delete</button>` : ""}
+        </div>
+      `;
+      cardWrap.appendChild(card);
+    });
+    // bind add and delete
+    document.getElementById("tz-pay-add")?.addEventListener("click", async ()=>{
+      const month = document.getElementById("tz-pay-month").value;
+      const amount = Number(document.getElementById("tz-pay-amount").value);
+      if(!month||!amount){ showRegistrationAlert();
+return; }
+      const note = document.getElementById("tz-pay-note").value || "";
+      await updateDoc(doc(db,"students",studentId),{[month]: { amount: amount, note: note }});
+      document.getElementById("tz-pay-amount").value='';
+      tz_openStudentFinance(studentId);
+    });
+    cardWrap.querySelectorAll('button[data-month]').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const month = e.target.getAttribute('data-month');
+        await updateDoc(doc(db,"students",studentId),{[month]:""});
+        tz_openStudentFinance(studentId);
+      });
+    });
+  }catch(e){ console.error("tz_openStudentFinance", e); showRegistrationAlert();
+}
+}
+
+// load batches when finance section is shown (attach to existing showSection calls via nav buttons)
+document.querySelectorAll("button[onclick^=\"showSection('\"]").forEach(btn=>{
+  const onclick = btn.getAttribute('onclick') || '';
+  if(onclick.includes("showSection('finance')")){
+    btn.addEventListener('click', ()=>{ setTimeout(()=>{ tz_loadBatches(); }, 200); });
+  }
+});
+
+// initial no-op
+
+
+
+let trendChartInstance = null;
+let pieChartInstance = null;
+let rawDataStore = [];
+let currentActiveBatches = {};
+
+async function loadFinanceSummary() {
+  await initFinanceDashboard();
+}
+
+async function initFinanceDashboard() {
+  console.log("Initializing Analytics Dashboard Engine...");
+  try {
+    const filterBatchSelect = document.getElementById("fs-filter-batch");
+    if(filterBatchSelect && filterBatchSelect.options.length <= 1) {
+      const bSnap = await getDocs(collection(db, "batches"));
+      filterBatchSelect.innerHTML = '<option value="">All Batches</option>';
+      bSnap.forEach(doc => {
+        currentActiveBatches[doc.id] = doc.data().name || doc.id;
+        const opt = document.createElement("option");
+        opt.value = doc.id;
+        opt.textContent = doc.data().name || doc.id;
+        filterBatchSelect.appendChild(opt);
+      });
+    }
+
+    const sSnap = await getDocs(collection(db, "students"));
+    rawDataStore = [];
+    
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const now = new Date();
+    const currentMonthStr = months[now.getMonth()];
+
+    sSnap.forEach(doc => {
+      const data = doc.data() || {};
+      months.forEach(m => {
+        const entry = data[m];
+        let amt = 0;
+        let isPaid = false;
+        if (entry && typeof entry === "object" && entry.amount) {
+          amt = parseFloat(entry.amount) || 0;
+          isPaid = true;
+        } else if (typeof entry === "number") {
+          amt = parseFloat(entry) || 0;
+          isPaid = true;
+        } else if (entry) {
+          isPaid = true;
+        }
+        
+        if (isPaid || m === currentMonthStr) {
+          rawDataStore.push({
+            id: doc.id,
+            name: data.name || "Unknown Student",
+            phone: data.phone || "N/A",
+            batchId: data.batch || "",
+            batchName: currentActiveBatches[data.batch] || "General Batch",
+            month: m,
+            amount: amt || parseFloat(data.amount) || 250,
+            status: isPaid ? "Paid" : "Due"
+          });
+        }
+      });
+    });
+
+    applyFinanceFilters();
+    renderCharts();
+    renderCalendar();
+  } catch(err) {
+    console.error("Dashboard engine failure:", err);
+  }
+}
+
+window.initFinanceDashboard = initFinanceDashboard;
+
+window.applyFinanceFilters = function() {
+  const searchVal = document.getElementById("fs-filter-search")?.value.toLowerCase() || "";
+  const batchVal = document.getElementById("fs-filter-batch")?.value || "";
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const currentMonthStr = months[new Date().getMonth()];
+  const monthVal = document.getElementById("fs-filter-month")?.value || currentMonthStr;
+
+  const filtered = rawDataStore.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchVal) || item.phone.includes(searchVal);
+    const matchesBatch = !batchVal || item.batchId === batchVal;
+    const matchesMonth = !monthVal || item.month === monthVal;
+    return matchesSearch && matchesBatch && matchesMonth;
+  });
+
+  updateDashboardMetrics(filtered);
+};
+
+function updateDashboardMetrics(data) {
+  let totalIncome = 0;
+  let totalDue = 0;
+  let paidCount = 0;
+  let dueCount = 0;
+  const topPayersMap = {};
+  const incomeByMonth = {};
+
+  rawDataStore.forEach(item => {
+    if(item.status === "Paid") {
+      incomeByMonth[item.month] = (incomeByMonth[item.month] || 0) + item.amount;
+    }
+  });
+
+  data.forEach(item => {
+    if(item.status === "Paid") {
+      totalIncome += item.amount;
+      paidCount++;
+      topPayersMap[item.name] = (topPayersMap[item.name] || 0) + item.amount;
+    } else {
+      totalDue += item.amount;
+      dueCount++;
+    }
+  });
+
+  const avgCollection = data.length ? Math.round(totalIncome / data.length) : 0;
+  const paymentPercentage = data.length ? Math.round((paidCount / data.length) * 100) : 0;
+
+  if(document.getElementById("fs-card-total-income")) document.getElementById("fs-card-total-income").textContent = `₹${totalIncome.toLocaleString()}`;
+  if(document.getElementById("fs-card-total-due")) document.getElementById("fs-card-total-due").textContent = `₹${totalDue.toLocaleString()}`;
+  if(document.getElementById("fs-card-avg-collection")) document.getElementById("fs-card-avg-collection").textContent = `₹${avgCollection}`;
+  if(document.getElementById("fs-card-active-students")) document.getElementById("fs-card-active-students").textContent = data.length;
+  
+  if(document.getElementById("fs-paid-count")) document.getElementById("fs-paid-count").textContent = paidCount;
+  if(document.getElementById("fs-due-count")) document.getElementById("fs-due-count").textContent = dueCount;
+  if(document.getElementById("fs-analytics-percent")) document.getElementById("fs-analytics-percent").textContent = `${paymentPercentage}% Paid`;
+  if(document.getElementById("fs-analytics-growth")) document.getElementById("fs-analytics-growth").textContent = `+${paymentPercentage > 0 ? Math.round(paymentPercentage*0.12) : 0}% Growth Index`;
+
+  const tbody = document.getElementById("fs-table-body");
+  if(tbody) {
+    tbody.innerHTML = data.map(item => `
+      <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+        <td class="p-3 font-semibold">${item.name}</td>
+        <td class="p-3 opacity-80">${item.batchName}</td>
+        <td class="p-3 opacity-60">${item.month}</td>
+        <td class="p-3 font-bold text-emerald-400">₹${item.amount}</td>
+        <td class="p-3">
+          <span class="px-2 py-0.5 rounded-full text-[10px] ${item.status === 'Paid' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">
+            ${item.status}
+          </span>
+        </td>
+      </tr>
+    `).join("") || `<tr><td colspan="5" class="p-4 text-center text-gray-400">No records found</td></tr>`;
+  }
+
+  const alertList = document.getElementById("fs-due-alerts-list");
+  const dueItems = data.filter(i => i.status === "Due");
+  if(document.getElementById("fs-alert-count")) document.getElementById("fs-alert-count").textContent = `${dueItems.length} Students`;
+  
+  if(alertList) {
+    alertList.innerHTML = dueItems.map(i => `
+      <div class="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-2 rounded-xl text-xs">
+        <div>
+          <span class="font-bold text-rose-300">⚠️ ${i.name}</span>
+          <span class="text-[10px] opacity-60 block">${i.batchName} • ${i.phone}</span>
+        </div>
+        <span class="font-black text-rose-400">₹${i.amount} Due</span>
+      </div>
+    `).join("") || `<div class="text-xs text-gray-400 p-2 text-center">🎉 Excellent! No pending dues.</div>`;
+  }
+
+  const sortedPayers = Object.entries(topPayersMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  const leaderboardEl = document.getElementById("fs-leaderboard-list");
+  if(leaderboardEl) {
+    leaderboardEl.innerHTML = sortedPayers.map(([name, amt], idx) => `
+      <li class="flex justify-between items-center bg-white/5 p-2 rounded-xl border border-white/5">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-amber-400">#${idx+1}</span>
+          <span class="font-medium">${name}</span>
+        </div>
+        <span class="font-bold text-emerald-400">₹${amt}</span>
+      </li>
+    `).join("") || `<li class="text-gray-400 text-center py-4">No complete records yet</li>`;
+  }
+
+  if(pieChartInstance) {
+    pieChartInstance.data.datasets[0].data = [paidCount, dueCount];
+    pieChartInstance.update();
+    if(document.getElementById("fs-pie-summary")) document.getElementById("fs-pie-summary").textContent = `Ratio: ${paidCount} Cleared / ${dueCount} Remaining`;
+  }
+}
+
+function renderCharts() {
+  const ctxTrend = document.getElementById("fs-chart-trend")?.getContext("2d");
+  if(ctxTrend) {
+    if(trendChartInstance) trendChartInstance.destroy();
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const trendData = months.map(m => {
+      return rawDataStore.filter(i => i.month === m && i.status === "Paid").reduce((acc, curr) => acc + curr.amount, 0);
+    });
+
+    trendChartInstance = new Chart(ctxTrend, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Monthly Income Trend (₹)',
+          data: trendData,
+          borderColor: '#a855f7',
+          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+          borderWidth: 3,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { 
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#ccc' } }, 
+          x: { grid: { display: false }, ticks: { color: '#ccc' } } 
+        }
+      }
+    });
+  }
+
+  const ctxPie = document.getElementById("fs-chart-pie")?.getContext("2d");
+  if(ctxPie) {
+    if(pieChartInstance) pieChartInstance.destroy();
+    pieChartInstance = new Chart(ctxPie, {
+      type: 'doughnut',
+      data: {
+        labels: ['Paid', 'Due'],
+        datasets: [{
+          data: [0, 0],
+          backgroundColor: ['#10b981', '#f43f5e'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#fff', boxWidth: 12 } } }
+      }
+    });
+  }
+}
+
+function renderCalendar() {
+  const grid = document.getElementById("fs-calendar-grid");
+  if(!grid) return;
+  grid.innerHTML = "";
+  for(let i=1; i<=31; i++) {
+    const cell = document.createElement("div");
+    cell.className = `p-1 rounded-md text-center border font-mono transition-all duration-300 ${i % 5 === 0 ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300' : 'bg-white/5 border-white/5 opacity-70'}`;
+    cell.textContent = i;
+    grid.appendChild(cell);
+  }
+}
+
+window.exportFinanceData = function(type) {
+  if(type === 'excel') {
+    const exportRows = rawDataStore.map(i => ({ "Student Name": i.name, "Batch Name": i.batchName, "Billing Month": i.month, "Amount (₹)": i.amount, "Status": i.status }));
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Finance Summary");
+    XLSX.writeFile(workbook, `Finance_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } else if(type === 'pdf') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Target Zone - Finance Breakdown Summary", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+    
+    let yOffset = 40;
+    doc.text("Student Name | Batch | Month | Fee Amount | Status", 14, yOffset);
+    doc.line(14, yOffset + 2, 195, yOffset + 2);
+    yOffset += 8;
+
+    rawDataStore.forEach(item => {
+      if(yOffset > 270) { doc.addPage(); yOffset = 20; }
+      doc.text(`${item.name} | ${item.batchName} | ${item.month} | Rs. ${item.amount} | ${item.status}`, 14, yOffset);
+      yOffset += 7;
+    });
+    doc.save("Finance_Report.pdf");
+  }
+};
+
+setInterval(()=>{
+  const sec = document.getElementById("section-finance-summary");
+  if(sec && !sec.classList.contains("hidden")){
+    initFinanceDashboard();
+  }
+}, 30000);
+
+
+
+// ===== Bottom Sheet Helpers =====
+function tz_openSheet(htmlContent){
+  const sheet = document.getElementById("tz-bottom-sheet");
+  const panel = document.getElementById("tz-sheet-panel");
+  document.getElementById("tz-sheet-content").innerHTML = htmlContent;
+  sheet.classList.remove("hidden");
+  requestAnimationFrame(()=> panel.classList.remove("translate-y-full"));
+}
+
+function tz_closeSheet(){
+  const sheet = document.getElementById("tz-bottom-sheet");
+  const panel = document.getElementById("tz-sheet-panel");
+  panel.classList.add("translate-y-full");
+  setTimeout(()=> sheet.classList.add("hidden"), 300);
+}
+
+document.getElementById("tz-sheet-close")?.addEventListener("click", tz_closeSheet);
+document.getElementById("tz-sheet-backdrop")?.addEventListener("click", tz_closeSheet);
+// ===== END Bottom Sheet Helpers =====
+
+// ===== end tz helpers =====
+// === Custom Deletion Functions ===
+window.deleteBatch = async (id)=>{
+  if(!confirm("Delete this batch?")) return;
+  await deleteDoc(doc(db,"batches",id));
+  showRegistrationAlert();
+tz_loadBatches?.();
+};
+
+window.deleteStudent = async (id, batchId)=>{
+  if(!confirm("Delete this student?")) return;
+  try{
+    await deleteDoc(doc(db,"students",id));
+    showRegistrationAlert();
+if(batchId){
+      await reorderRolls(batchId);
+      tz_loadStudents?.(batchId);
+    } else if(typeof currentBatchId!=='undefined' && currentBatchId){
+      await reorderRolls(currentBatchId);
+      tz_loadStudents?.(currentBatchId);
+    }
+  }catch(e){ console.error("deleteStudent", e); alert("Student delete failed: "+(e.message||e)); }
+};
+
+async function reorderRolls(batchId){
+  try{
+    const q = query(collection(db,"students"), where("batch","==",batchId), orderBy("createdAt"));
+    const snap = await getDocs(q);
+    let i=1;
+    for(const docSnap of snap.docs){
+      await updateDoc(doc(db,"students",docSnap.id), { roll: i });
+      i++;
+    }
+  }catch(e){ console.error("reorderRolls", e); }
+}
+;
+
+
+/* === FIXED Batch Loader & Registration Submit === */
+window.populateRegistrationBatches = async function () {
+  if(window.__POP_REG_LOCKED) return;
+  window.__POP_REG_LOCKED = true;
+
+  try {
+    const reg = document.getElementById("reg-batch-select");
+    if (!reg) return;
+    reg.innerHTML = '<option value="">-- Select Batch --</option>';
+    const q = query(collection(db, "batches"), orderBy("name"));
+    const snap = await getDocs(q);
+    snap.forEach(docSnap=>{
+      const d = docSnap.data()||{};
+      const opt=document.createElement("option");
+      opt.value=docSnap.id; opt.textContent=d.name||docSnap.id;
+      reg.appendChild(opt);
+    });
+  } catch(e){ console.error(e); }
+};
+
+document.addEventListener("DOMContentLoaded", ()=>{ try{ populateRegistrationBatches(); }catch(e){} });
+
+const _oldShowSection = window.showSection;
+window.showSection = async function(id){
+  try{ _oldShowSection(id); }catch(e){}
+  if(id==="registration"){
+    await populateRegistrationBatches();
+  }
+};
+
+async function handleRegistrationSubmit(e){
+  e.preventDefault();
+  try{
+    const name = document.getElementById("reg-name").value.trim();
+    const phone = document.getElementById("reg-phone").value.trim();
+    const father = document.getElementById("reg-father").value.trim();
+    const wp = document.getElementById("reg-whatsapp").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+    const addr = document.getElementById("reg-address").value.trim();
+    const edu = document.getElementById("reg-education").value.trim();
+    const dob = document.getElementById("reg-dob").value;
+    const batch = document.getElementById("reg-batch-select").value;
+
+    const fb = document.getElementById("reg-feedback");
+
+    if(!name||!phone||!father){
+      fb.textContent="❗ Required fields missing";
+      fb.classList.remove("hidden");
+      return;
+    }
+
+    const docRef = await addDoc(collection(db,"students"),{
+      name,phone,father,whatsapp:wp,email,address:addr,education:edu,dob,batch,createdAt:Date.now()
+    });
+
+    await updateDoc(doc(db,"students",docRef.id),{studentDocId:docRef.id});
+
+    fb.textContent="✔ Registration Successful!";
+    fb.classList.remove("hidden");
+    fb.classList.add("text-green-400");
+    document.getElementById("registration-form").reset();
+
+  }catch(err){
+    const fb=document.getElementById("reg-feedback");
+    fb.textContent="Error: "+err.message;
+    fb.classList.remove("hidden");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  const form=document.getElementById("registration-form");
+  if(form){
+    form.addEventListener("submit", handleRegistrationSubmit);
+  }
+});
+/* === END FIX === */
+</script>
+<script>
+    // Sidebar toggle
+    document.getElementById("menu-btn").addEventListener("click",()=>{document.getElementById("sidebar").classList.remove("hidden");});
+    document.getElementById("close-sidebar").addEventListener("click",()=>{document.getElementById("sidebar").classList.add("hidden");});
+
+    // Background Animation
+    const canvas=document.getElementById("bg-canvas");
+    const ctx=canvas.getContext("2d");
+    canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+    let stars=[], planes=[];
+    for(let i=0;i<150;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2,dx:(Math.random()-0.5)*0.5,dy:(Math.random()-0.5)*0.5});}
+    for(let i=0;i<2;i++){planes.push({x:-50,y:Math.random()*canvas.height/2,dx:2+Math.random()*2,size:20});}
+    function draw(){
+      ctx.fillStyle="rgba(0,0,30,0.4)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="white"; stars.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();s.x+=s.dx;s.y+=s.dy;if(s.x<0||s.x>canvas.width) s.dx*=-1;if(s.y<0||s.y>canvas.height) s.dy*=-1;});
+      planes.forEach(p=>{ctx.fillStyle="lightblue";ctx.fillRect(p.x,p.y,p.size,3);ctx.fillStyle="white";ctx.fillRect(p.x-5,p.y+1,10,1);p.x+=p.dx;if(p.x>canvas.width+50){p.x=-50;p.y=Math.random()*canvas.height/2;}});
+    }
+    setInterval(draw,30);
+
+// Student Modal Toggle
+document.getElementById("show-add-student")?.addEventListener("click", ()=>{
+  document.getElementById("student-modal").classList.remove("hidden");
+  populateStudentBatchSelect();
+});
+document.getElementById("close-student-modal")?.addEventListener("click", ()=>{
+  document.getElementById("student-modal").classList.add("hidden");
+});
+document.getElementById("student-form")?.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  await addStudent();
+  document.getElementById("student-modal").classList.add("hidden");
+});
+</script>
+<!-- Fullscreen Student Profile Modal -->
+<div id="tz-full-profile" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 overflow-y-auto">
+  <div class="bg-white max-w-3xl mx-auto my-6 p-6 rounded-lg relative">
+    <button onclick="document.getElementById('tz-full-profile').classList.add('hidden')" 
+      class="absolute top-3 right-3 bg-red-600 text-gray-100 px-3 py-1 rounded">⬅ Back</button>
+    <div id="tz-full-profile-content"></div>
+  </div>
+</div>
+<script>
+window.tz_openStudentFinance = async function(studentId){
+  try{
+    const docRef = doc(db,"students",studentId);
+    const snap = await getDoc(docRef);
+    if(!snap.exists()){ showRegistrationAlert();
+return; }
+    const data = snap.data();
+    const modal = document.getElementById("tz-full-profile");
+    const content = document.getElementById("tz-full-profile-content");
+
+    let whatsappLink = data.whatsapp ? `<a href="https://wa.me/${data.whatsapp}" target="_blank" class="text-green-600 underline">${data.whatsapp}</a>` : "";
+    let phoneLink = data.phone ? `<a href="tel:${data.phone}" class="text-blue-600 underline">${data.phone}</a>` : "";
+    let emailLink = data.email ? `<a href="mailto:${data.email}" class="text-purple-600 underline">${data.email}</a>` : "";
+
+    content.innerHTML = `
+      <h2 class="text-2xl font-bold mb-2">${data.name||""}</h2>
+      <p><b>ID:</b> ${data.studentAutoId||studentId}</p>
+      <p><b>Phone:</b> ${phoneLink}</p>
+      <p><b>WhatsApp:</b> ${whatsappLink}</p>
+      <p><b>Email:</b> ${emailLink}</p>
+      <p><b>Address:</b> ${data.address||""}</p>
+      <p><b>DOB:</b> ${data.dob||""}</p>
+      <hr class="my-2"/>
+      <h3 class="font-semibold">Monthly Payments</h3>
+      <table class="w-full text-sm border"><thead><tr><th>Month</th><th>Amount</th><th>Action</th></tr></thead>
+      <tbody id="tz-finance-rows"></tbody></table>
+      <div class="mt-2 flex gap-2">
+        <select id="tz-pay-mo).join("");
+
+    const cardWrap = document.getElementById("tz-payment-cards");
+    tbody.innerHTML="";
+    let total = 0;
+    months.forEach(m=>{
+      const amt=data[m]||"";
+      if(amt) total += Number(amt)||0;
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${m}</td><td>${amt ? amt : ""}${note ? `<div class='text-xs text-gray-300'>(${note})</div>` : ""}</td><td>${amt?'<button class="bg-red-600 text-gray-100 px-2 py-1 rounded" data-month="'+m+'">Del</button>':'-'}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("tz-total-paid").textContent = total;
+
+    document.getElementById("tz-pay-add")?.addEventListener("click", async ()=>{
+      const month=document.getElementById("tz-pay-month").value;
+      const amount=Number(document.getElementById("tz-pay-amount").value);
+      if(!month||!amount){showRegistrationAlert();
+return;}
+      if(data[month]){showRegistrationAlert();
+return;}
+      const note = document.getElementById("tz-pay-note").value || "";
+      await updateDoc(doc(db,"students",studentId),{[month]: { amount: amount, note: note }});
+      tz_openStudentFinance(studentId);
+    });
+
+    cardWrap.querySelectorAll('button[data-month]').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const month=e.target.getAttribute('data-month');
+        await updateDoc(doc(db,"students",studentId),{[month]:""});
+        tz_openStudentFinance(studentId);
+      });
+    });
+
+    // PDF export
+    document.getElementById("tz-export-pdf").addEventListener("click", ()=>{
+      let pdfContent = `Student: ${data.name||""}
+Phone: ${data.phone||""}
+WhatsApp: ${data.whatsapp||""}
+Email: ${data.email||""}
+Address: ${data.address||""}
+DOB: ${data.dob||""}
+
+Payments:
+`;
+      months.forEach(m=>{ pdfContent += m+": "+(data[m]||"") + "
+"; });
+      pdfContent += "
+Total Paid: "+total;
+      const blob = new Blob([pdfContent], {type:"application/pdf"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (data.name||"student")+"_payments.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+  }catch(e){console.error(e);showRegistrationAlert();
+}
+}
+</script>
+
+
+<script>
+const AUTHORIZED_ADMINS = ["admin@email.com"];
+</script>
+
+<script type="module">
+// ===== Registration Tab Scripts (ADDED) =====
+);
+  }catch(e){ console.error("populateRegistrationBatches", e); }
+}
+document.getElementById("reg-save-btn")?.addEventListener("click", async ()=>{
+  const name = document.getElementById("reg-name").value.trim();
+  const phone = document.getElementById("reg-phone").value.trim();
+  const father = document.getElementById("reg-father").value.trim();
+  const whatsapp = document.getElementById("reg-whatsapp").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const address = document.getElementById("reg-address").value.trim();
+  const education = document.getElementById("reg-education").value.trim();
+  const dob = document.getElementById("reg-dob").value;
+  const batch = document.getElementById("reg-batch-select").value;
+  const studentUID = document.getElementById("reg-uid").value || ("STU-" + Math.floor(100000 + Math.random()*900000));
+
+  if(!name || !phone || !father){
+    showRegistrationAlert();
+return;
+  }
+
+  try{
+    const docRef = await addDoc(collection(db,"students"), {
+      name, phone, father, whatsapp, email, address, education, dob, batch, studentAutoId: studentUID, createdAt: Date.now()
+    });
+    // also set a field studentDocId for reference
+    await updateDoc(doc(db,"students",docRef.id), { studentDocId: docRef.id });
+
+    alert("✅ Student registered: " + studentUID);
+    // clear form
+    document.getElementById("registration-form")?.addEventListener("submit", async (e)=>{
+      const d = docSnap.data() || {};
+      const el = document.createElement("div");
+      el.className = "p-2 bg-white/10 backdrop-blur-xl rounded mb-2";
+      el.innerHTML = `<div class="font-semibold">${d.name || ""} — ${d.studentAutoId || docSnap.id}</div><div class="text-xs">${d.phone||""} • ${d.batch||""}</div>`;
+      list.appendChild(el);
+    });
+  }catch(e){ console.error("populateRecentRegistrations", e); }
+}
+
+// When registration section is shown, populate batches and recent regs
+const origShowSection = window.showSection;
+window.showSection = async function(id){
+  origShowSection(id);
+  if(id === "registration"){
+    await populateRegistrationBatches();
+      }
+  // also ensure finance batch select is populated if finance opened
+  if(id === "finance"){
+    setTimeout(()=>{ tz_loadBatches?.(); }, 150);
+  }
+};
+
+// Remove the old global button if still present (defensive)
+document.getElementById("tz-show-add-student")?.remove();
+// ===== End Registration Tab Scripts =====
+
+/* Registration helpers: populate batches and handle submit */
+;
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = d.name || docSnap.id;
+      sel.appendChild(opt);
+    });
+  }catch(e){ console.error("populateRegistrationBatches:", e); }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  // load batches when page ready
+  populateRegistrationBatches();
+});
+
+document.getElementById("registration-form")?.addEventListener("submit", async function(e){
+  e.preventDefault();
+  const name = document.getElementById("reg-name").value.trim();
+  const phone = document.getElementById("reg-phone").value.trim();
+  const father = document.getElementById("reg-father").value.trim();
+  const whatsapp = document.getElementById("reg-whatsapp").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const address = document.getElementById("reg-address").value.trim();
+  const education = document.getElementById("reg-education").value.trim();
+  const dob = document.getElementById("reg-dob").value;
+  const batch = document.getElementById("reg-batch-select").value;
+  const password = dob;
+
+  if(!name || !phone || !father || !password){
+    alert("নাম, ফোন, বাবার নাম এবং পাসওয়ার্ড প্রয়োজন।");
+    return;
+  }
+
+  const uid = phone + "-" + name.charAt(0).toUpperCase();
+  try{
+    await addDoc(collection(db,"students"), {
+      name, phone, father, whatsapp, email, address, education, dob, batch, uid, createdAt: Date.now()
+    });
+    showRegistrationAlert();
+if(!name || !phone){ showRegistrationAlert();
+return; }
+  const uid = phone + "-" + name.charAt(0).toUpperCase();
+    const q=query(collection(db,"batches"),orderBy("name"));
+    const snap=await getDocs(q);
+    snap.forEach(docSnap=>{
+      const d=docSnap.data()||{};
+      const opt=document.createElement("option");
+      opt.value=docSnap.id;
+      opt.textContent=d.name||docSnap.id;
+      dst.appendChild(opt);
+    });
+
+  }catch(e){ console.error("populateRegistrationBatches",e); }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{ 
+    populateRegistrationBatches();
+});
+
+/* Added reliable populateRegistrationBatches to load batches directly from Firestore */
+
+    const q = query(collection(db,'batches'), orderBy('name'));
+    const snap = await getDocs(q);
+    snap.forEach(docSnap=>{
+      const d = docSnap.data() || {};
+      const opt = document.createElement('option');
+      opt.value = docSnap.id;
+      opt.textContent = d.name || docSnap.id;
+      sel.appendChild(opt);
+    });
+  }catch(e){ console.error('populateRegistrationBatches error', e); }
+}
+
+// Fallback: if your app uses a different mechanism to show sections, you can call populateRegistrationBatches() when registration is opened.
+
+</script>
+
+<script>
+// Unified Batch Loader
+// Hook showSection
+(function(){
+  const old = window.showSection;
+  window.showSection = async function(id){
+    if(typeof old === 'function') await old(id);
+    if(id === 'registration') await populateRegistrationBatches();
+  }
+})();
+
+// DOM ready
+document.addEventListener("DOMContentLoaded", ()=>populateRegistrationBatches());
+</script>
+
+<!-- === UNIFIED: populateRegistrationBatches + hooks (added by assistant) === -->
+<script>
+async     // 2) Primary: fetch from Firestore if available
+    if(typeof getDocs !== 'undefined' && typeof collection !== 'undefined' && typeof query !== 'undefined' && typeof orderBy !== 'undefined'){
+      try{
+        const q = query(collection(db,'batches'), orderBy('name'));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap=>{
+          const d = docSnap.data() || {};
+          const opt = document.createElement('option');
+          opt.value = docSnap.id;
+          opt.textContent = d.name || docSnap.id;
+          // avoid duplicates when copied from finance select
+          if(!Array.from(reg.options).some(o=>o.value===opt.value)){
+            reg.appendChild(opt);
+          }
+        });
+      }catch(e){
+        console.warn('populateRegistrationBatches: firestore fetch failed', e);
+      }
+    } else {
+      // If firestore helpers not ready, try tz_populateBatchSelect to populate finance select then copy
+      if(typeof tz_populateBatchSelect === 'function'){
+        try{ await tz_populateBatchSelect(); const fin2=document.getElementById("tz-student-batch-select"); if(fin2) reg.innerHTML = fin2.innerHTML; }catch(e){ /* ignore */ }
+      }
+    }
+  }catch(e){
+    console.error('populateRegistrationBatches error', e);
+  }
+}
+
+// Ensure it's called on DOM ready
+document.addEventListener('DOMContentLoaded', ()=>{
+  try{ populateRegistrationBatches(); }catch(e){ console.warn(e); }
+});
+
+// Ensure it's called whenever registration section is shown (robust hook)
+(function(){
+  const orig = window.showSection;
+  window.showSection = async function(id){
+    try{ if(typeof orig === 'function') await orig(id); }catch(e){ console.warn('original showSection error', e); }
+    try{
+      if(id === 'registration') await populateRegistrationBatches();
+      if(id === 'finance') { setTimeout(()=>{ if(typeof tz_loadBatches==='function') tz_loadBatches(); }, 150); }
+    }catch(e){ console.error('post-showSection hook error', e); }
+  };
+})();
+</script>
+<!-- === END UNIFIED === -->
+
+
+<script>
+/* Consolidated populateRegistrationBatches: safe DOM checks and optional async DB hooks.
+   Adjust selector IDs ('reg-batch-select') to match your page if different. */
+async     // clear existing options safely
+    reg.innerHTML = '<option value="">-- Select Batch --</option>';
+    // If you use a backend or firestore, you can populate here. For now, leave placeholder options.
+    // Example placeholder:
+    const placeholder = ['Batch A','Batch B','Batch C'];
+    placeholder.forEach((name, idx) => {
+      const opt = document.createElement('option');
+      opt.value = name.toLowerCase().replace(/\s+/g,'-') + '-' + (idx+1);
+      opt.textContent = name;
+      reg.appendChild(opt);
+    });
+  }catch(e){
+    console.error('populateRegistrationBatches error', e);
+  }
+}
+</script>
+
+
+
+<script>
+const AUTHORIZED_ADMINS = ["admin@email.com"];
+</script>
+
+<script type="module">
+import { db } from "./firebase-config.js";
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } 
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+async function createBatch(){
+  const batchInput = document.getElementById("create-batch-name");
+  const name = batchInput?.value.trim();
+  if(!name){
+    alert("Please enter batch name");
+    return;
+  }
+  try{
+    await addDoc(collection(db,"batches"), {
+      name,
+      createdAt: serverTimestamp()
+    });
+    alert("Batch created!");
+    populateRegistrationBatches();
+  }catch(e){
+    console.error("createBatch error", e);
+  }
+}
+
+async function populateRegistrationBatches(){
+  if(window.__POP_REG_LOCKED) return;
+  window.__POP_REG_LOCKED = true;
+
+  const sel = document.getElementById("reg-batch-select");
+  if(!sel) return;
+  sel.innerHTML = '<option value="">-- Select Batch --</option>';
+  try{
+    const q = query(collection(db,"batches"), orderBy("name"));
+    const snap = await getDocs(q);
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = d.name || "Unnamed";
+      sel.appendChild(opt);
+    });
+  }catch(e){
+    console.error("populateRegistrationBatches error", e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ()=> populateRegistrationBatches());
+window.createBatch = createBatch;
+</script>
+
+
+<script>
+/* Robust populateRegistrationBatches: copies from finance select if available,
+   falls back to calling tz_populateBatchSelect(), or queries Firestore if those helpers are available.
+   Ensures reg-batch-select is updated. */
+async function populateRegistrationBatches(){
+  if(window.__POP_REG_LOCKED) return;
+  window.__POP_REG_LOCKED = true;
+
+  try{
+    const reg = document.getElementById('reg-batch-select');
+    if(!reg) return;
+    reg.innerHTML = '<option value="">-- Select Batch --</option>';
+    // 1) try copying from finance select(s)
+    const candidateIds = ['tz-student-batch-select','student-batch-select','tz-student-batch-select'];
+    for(const id of candidateIds){
+      const fin = document.getElementById(id);
+      if(fin && fin.options && fin.options.length > 1){
+        reg.innerHTML = fin.innerHTML;
+        return;
+      }
+    }
+    // 2) try tz_populateBatchSelect then copy
+    if(typeof tz_populateBatchSelect === 'function'){
+      try{
+        await tz_populateBatchSelect();
+        const fin2 = document.getElementById('tz-student-batch-select') || document.getElementById('student-batch-select');
+        if(fin2) { reg.innerHTML = fin2.innerHTML; return; }
+      }catch(e){ console.warn('tz_populateBatchSelect failed', e); }
+    }
+    // 3) Last resort: attempt to query Firestore if functions are available in this scope
+    if(typeof getDocs !== 'undefined' && typeof collection !== 'undefined' && typeof query !== 'undefined' && typeof orderBy !== 'undefined' && typeof db !== 'undefined'){
+      try{
+        const q = query(collection(db,'batches'), orderBy('name'));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap=>{
+          const d = docSnap.data() || {};
+          const opt = document.createElement('option');
+          opt.value = docSnap.id;
+          opt.textContent = d.name || docSnap.id;
+          if(!Array.from(reg.options).some(o=>o.value===opt.value)) reg.appendChild(opt);
+        });
+        return;
+      }catch(e){ console.warn('firestore fetch in populateRegistrationBatches failed', e); }
+    }
+    // If nothing worked, leave default option
+  }catch(e){
+    console.error('populateRegistrationBatches error', e);
+  }
+}
+
+// Ensure it's globally available and called on DOMContentLoaded and when registration section shown
+window.populateRegistrationBatches = populateRegistrationBatches;
+document.addEventListener('DOMContentLoaded', ()=>{ try{ populateRegistrationBatches(); }catch(e){console.warn(e);} });
+
+// Hook into showSection if available
+if(typeof window.showSection === 'function'){
+  const orig = window.showSection;
+  window.showSection = async function(id){
+    try{ await orig(id); }catch(e){ console.warn(e); }
+    if(id === 'registration') try{ await populateRegistrationBatches(); }catch(e){ console.warn(e); }
+    if(id === 'finance') { setTimeout(()=>{ if(typeof tz_loadBatches==='function') tz_loadBatches(); }, 150); }
+  };
+}
+</script>
+
+
+<!-- START: Consolidated populateRegistrationBatches override (added by assistant) -->
+<script>
+/*
+  Consolidated batch loader override.
+  This script *overrides* any previous populateRegistrationBatches definition by assigning
+  window.populateRegistrationBatches. It is intentionally idempotent and defensive:
+  - safe DOM checks
+  - tries to copy from tz-student-batch-select / student-batch-select if present
+  - calls tz_populateBatchSelect() if available and then copies
+  - queries Firestore if getDocs/collection/query/orderBy/db are present
+  - always called on DOMContentLoaded and when registration section shown
+*/
+(function(){
+  async function consolidatedPopulateRegistrationBatches(){
+    try{
+      const reg = document.getElementById('reg-batch-select');
+      if(!reg) return;
+      // start fresh
+      reg.innerHTML = '<option value="">-- Select Batch --</option>';
+
+      // 1) Copy from known finance selects if present and already populated
+      const candidateIds = ['tz-student-batch-select','student-batch-select','tz-student-batch-select'];
+      for(const id of candidateIds){
+        const fin = document.getElementById(id);
+        if(fin && fin.options && fin.options.length > 1){
+          reg.innerHTML = fin.innerHTML;
+          return;
+        }
+      }
+
+      // 2) If helper tz_populateBatchSelect exists, call it and then copy
+      if(typeof tz_populateBatchSelect === 'function'){
+        try{
+          await tz_populateBatchSelect();
+          const fin2 = document.getElementById('tz-student-batch-select') || document.getElementById('student-batch-select');
+          if(fin2 && fin2.options && fin2.options.length > 1){
+            reg.innerHTML = fin2.innerHTML;
+            return;
+          }
+        }catch(e){
+          console.warn('tz_populateBatchSelect failed', e);
+        }
+      }
+
+      // 3) Last resort: attempt to query Firestore directly if helpers are available
+      if(typeof getDocs !== 'undefined' && typeof collection !== 'undefined' && typeof query !== 'undefined' && typeof orderBy !== 'undefined' && typeof db !== 'undefined'){
+        try{
+          const q = query(collection(db,'batches'), orderBy('name'));
+          const snap = await getDocs(q);
+          snap.forEach(docSnap=>{
+            const d = docSnap.data() || {};
+            const opt = document.createElement('option');
+            opt.value = docSnap.id;
+            opt.textContent = d.name || docSnap.id;
+            // avoid duplicates
+            if(!Array.from(reg.options).some(o=>o.value===opt.value)) reg.appendChild(opt);
+          });
+          return;
+        }catch(e){
+          console.warn('firestore fetch in consolidatedPopulateRegistrationBatches failed', e);
+        }
+      }
+
+      // 4) If nothing else, leave default option (optionally add placeholders)
+      // (No-op)
+    }catch(err){
+      console.error('consolidatedPopulateRegistrationBatches error', err);
+    }
+  }
+
+  // expose and ensure it overrides any previous implementations
+  window.populateRegistrationBatches = consolidatedPopulateRegistrationBatches;
+
+  // call it on DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{ consolidatedPopulateRegistrationBatches(); }catch(e){ console.warn(e); }
+  });
+
+  // hook into existing showSection in a safe way so registration tab always reloads batches
+  (function(){
+    const orig = window.showSection;
+    window.showSection = async function(id){
+      try{
+        if(typeof orig === 'function') await orig(id);
+      }catch(e){
+        console.warn('original showSection error', e);
+      }
+      try{
+        if(id === 'registration') await consolidatedPopulateRegistrationBatches();
+        // keep existing finance behaviour if present
+        if(id === 'finance') { setTimeout(()=>{ if(typeof tz_loadBatches==='function') tz_loadBatches(); }, 150); }
+      }catch(e){
+        console.warn('post-showSection hook error', e);
+      }
+    };
+  })();
+
+})();
+</script>
+<!-- === End Patch === -->
+
+
+<!-- Edit Student Modal -->
+<div id="tz-edit-modal" class="hidden fixed inset-0 bg-black/70 z-[999] flex items-center justify-center">
+  <div class="bg-white text-black w-full max-w-md rounded-xl p-6">
+    <h3 class="text-xl font-bold mb-4">✏️ Edit Student</h3>
+    <input id="edit-name" class="w-full border p-2 mb-2 rounded" placeholder="Name"/>
+    <input id="edit-phone" class="w-full border p-2 mb-2 rounded" placeholder="Phone"/>
+    <input id="edit-whatsapp" class="w-full border p-2 mb-2 rounded" placeholder="WhatsApp"/>
+    <input id="edit-address" class="w-full border p-2 mb-3 rounded" placeholder="Address"/>
+      <label>Date of Birth</label>
+<input type="date" id="edit-dob" class="w-full border rounded px-3 py-2">
+    <div class="flex justify-end gap-2">
+      <button id="edit-cancel" class="px-4 py-2 bg-gray-400 rounded">Cancel</button>
+      <button id="edit-save" class="px-4 py-2 bg-green-600 text-white rounded">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TZ Bottom Sheet (App Style) ===== -->
+<div id="tz-bottom-sheet" class="fixed inset-0 z-50 hidden">
+  <div id="tz-sheet-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+  <div id="tz-sheet-panel"
+    class="absolute bottom-0 left-0 right-0 max-h-[90%] rounded-t-3xl bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 text-white
+           transform translate-y-full transition-transform duration-300 ease-out overflow-y-auto">
+    <div class="p-4 sticky top-0 bg-black/40 backdrop-blur-xl flex items-center justify-between">
+      <div class="w-12 h-1 bg-white/30 rounded-full mx-auto"></div>
+      <button id="tz-sheet-close" class="text-xl ml-auto">❌</button>
+    </div>
+    <div id="tz-sheet-content" class="p-4">
+      <!-- Dynamic content injected here -->
+    </div>
+  </div>
+</div>
+<!-- ===== END Bottom Sheet ===== -->
+
+<script>
+function showRegistrationAlert(){
+  try{
+    const name = document.getElementById('reg-name')?.value || '';
+    const phone = document.getElementById('reg-phone')?.value || '';
+    if(name || phone){
+      const uid = (phone || 'UID') + (name ? '-' + name.charAt(0).toUpperCase() : '');
+      alert('Registration Complete! UID: ' + uid);
+    } else {
+      alert('Registration Complete!');
+    }
+  }catch(e){
+    alert('Registration Complete!');
+  }
+}
+</script>
+
+</body>
+
+
+</html>
