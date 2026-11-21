@@ -90,8 +90,11 @@ class MainActivity : ComponentActivity() {
         education: String,
         status: String
     ) {
-        if (name.isBlank() || phone.isBlank() ||
-            dob.isBlank() || email.isBlank() ||
+        if (
+            name.isBlank() ||
+            phone.isBlank() ||
+            dob.isBlank() ||
+            email.isBlank() ||
             password.length < 6
         ) {
             message = "সব তথ্য পূরণ করো। Password কমপক্ষে ৬ অক্ষরের হতে হবে।"
@@ -149,6 +152,7 @@ class MainActivity : ComponentActivity() {
         }
 
         busy = true
+
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener {
                 busy = false
@@ -197,7 +201,8 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val credential = GoogleAuthProvider.getCredential(
-                    account.idToken, null
+                    account.idToken,
+                    null
                 )
 
                 busy = true
@@ -221,7 +226,9 @@ class MainActivity : ComponentActivity() {
                                             "createdAt" to FieldValue.serverTimestamp(),
                                             "google" to true
                                         )
-                                    )
+                                    ).addOnFailureListener {
+                                        message = it.message ?: "Google তথ্য সেভ হয়নি"
+                                    }
                                 }
 
                                 busy = false
@@ -303,6 +310,7 @@ class MainActivity : ComponentActivity() {
 
     private fun logout() {
         auth.signOut()
+
         GoogleSignIn.getClient(
             this,
             GoogleSignInOptions.DEFAULT_SIGN_IN
@@ -327,14 +335,16 @@ class MainActivity : ComponentActivity() {
             )
 
             "login" -> LoginScreen(
-                message, busy,
+                message,
+                busy,
                 onLogin = { e, p -> login(e, p) },
                 onGoogle = { googleLogin() },
                 onSignup = { page = "signup" }
             )
 
             "signup" -> SignupScreen(
-                message, busy,
+                message,
+                busy,
                 onSignup = { n, ph, d, e, p, ed, st ->
                     signup(n, ph, d, e, p, ed, st)
                 },
@@ -343,7 +353,8 @@ class MainActivity : ComponentActivity() {
             )
 
             "verify" -> VerifyScreen(
-                message, busy,
+                message,
+                busy,
                 onVerify = { ph, d -> verifyStudent(ph, d) },
                 onLogout = { logout() }
             )
@@ -384,29 +395,54 @@ private fun Page(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(35.dp))
-        Text("TT", color = Color.White, fontSize = 30.sp,
+
+        Text(
+            text = "TT",
+            color = Color.White,
+            fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .background(Navy, RoundedCornerShape(50))
                 .padding(horizontal = 23.dp, vertical = 13.dp)
         )
+
         Spacer(Modifier.height(16.dp))
-        Text("TARGET TUTORIAL", fontSize = 23.sp,
-            fontWeight = FontWeight.Bold, color = Navy)
-        Text(subtitle, color = Blue, fontSize = 14.sp)
+
+        Text(
+            text = "TARGET TUTORIAL",
+            fontSize = 23.sp,
+            fontWeight = FontWeight.Bold,
+            color = Navy
+        )
+
+        Text(
+            text = subtitle,
+            color = Blue,
+            fontSize = 14.sp
+        )
+
         Spacer(Modifier.height(30.dp))
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            )
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                content = content
+                modifier = Modifier.padding(20.dp)
             ) {
-                Text(title, fontSize = 23.sp,
-                    fontWeight = FontWeight.Bold, color = Navy)
+                Text(
+                    text = title,
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Navy
+                )
+
                 Spacer(Modifier.height(18.dp))
+
+                content()
             }
         }
     }
@@ -415,7 +451,11 @@ private fun Page(
 @Composable
 private fun Message(text: String) {
     if (text.isNotBlank()) {
-        Text(text, color = Color(0xFFB3261E), fontSize = 13.sp)
+        Text(
+            text = text,
+            color = Color(0xFFB3261E),
+            fontSize = 13.sp
+        )
         Spacer(Modifier.height(10.dp))
     }
 }
@@ -434,18 +474,28 @@ private fun Field(
         singleLine = true,
         shape = RoundedCornerShape(12.dp)
     )
+
     Spacer(Modifier.height(10.dp))
 }
 
 @Composable
-private fun MainButton(text: String, busy: Boolean, onClick: () -> Unit) {
+private fun MainButton(
+    text: String,
+    busy: Boolean,
+    onClick: () -> Unit
+) {
     Button(
         onClick = onClick,
         enabled = !busy,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
         shape = RoundedCornerShape(13.dp)
     ) {
-        Text(if (busy) "অপেক্ষা করো..." else text, fontSize = 16.sp)
+        Text(
+            text = if (busy) "অপেক্ষা করো..." else text,
+            fontSize = 16.sp
+        )
     }
 }
 
@@ -455,20 +505,34 @@ private fun WelcomeScreen(
     onSignup: () -> Unit
 ) {
     Page("স্বাগতম!", "Learn • Practice • Succeed") {
-        Text("তোমার পড়াশোনা, পরীক্ষা ও শিক্ষাসামগ্রী এক জায়গায়।",
-            color = Navy, fontSize = 16.sp)
+        Text(
+            text = "তোমার পড়াশোনা, পরীক্ষা ও শিক্ষাসামগ্রী এক জায়গায়।",
+            color = Navy,
+            fontSize = 16.sp
+        )
+
         Spacer(Modifier.height(25.dp))
+
         MainButton("Login", false, onLogin)
+
         Spacer(Modifier.height(12.dp))
+
         OutlinedButton(
             onClick = onSignup,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
         ) {
             Text("নতুন Account তৈরি করো")
         }
+
         Spacer(Modifier.height(15.dp))
-        Text("Study Materials • Online Exam • Results • Notices",
-            color = Color.Gray, fontSize = 13.sp)
+
+        Text(
+            text = "Study Materials • Online Exam • Results • Notices",
+            color = Color.Gray,
+            fontSize = 13.sp
+        )
     }
 }
 
@@ -485,15 +549,24 @@ private fun LoginScreen(
 
     Page("Student Login", "তোমার Account-এ প্রবেশ করো") {
         Message(message)
+
         Field("Email Address", email) { email = it }
         Field("Password", password) { password = it }
-        MainButton("Login", busy) { onLogin(email.trim(), password) }
+
+        MainButton("Login", busy) {
+            onLogin(email.trim(), password)
+        }
+
         Spacer(Modifier.height(12.dp))
+
         OutlinedButton(
             onClick = onGoogle,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Google দিয়ে Login") }
+        ) {
+            Text("Google দিয়ে Login")
+        }
+
         TextButton(onClick = onSignup) {
             Text("নতুন শিক্ষার্থী? Sign Up করো")
         }
@@ -504,7 +577,10 @@ private fun LoginScreen(
 private fun SignupScreen(
     message: String,
     busy: Boolean,
-    onSignup: (String, String, String, String, String, String, String) -> Unit,
+    onSignup: (
+        String, String, String, String,
+        String, String, String
+    ) -> Unit,
     onGoogle: () -> Unit,
     onLogin: () -> Unit
 ) {
@@ -518,23 +594,34 @@ private fun SignupScreen(
 
     Page("Student Sign Up", "নতুন Account তৈরি করো") {
         Message(message)
+
         Field("Full Name", name) { name = it }
         Field("WhatsApp / Phone Number", phone) { phone = it }
         Field("Date of Birth (YYYY-MM-DD)", dob) { dob = it }
         Field("Email Address", email) { email = it }
-        Field("Password (কমপক্ষে ৬ অক্ষর)", password) { password = it }
+        Field("Password (কমপক্ষে ৬ অক্ষর)", password) {
+            password = it
+        }
         Field("Education", education) { education = it }
         Field("Status", status) { status = it }
 
         MainButton("Sign Up", busy) {
-            onSignup(name, phone, dob, email, password, education, status)
+            onSignup(
+                name, phone, dob, email,
+                password, education, status
+            )
         }
+
         Spacer(Modifier.height(10.dp))
+
         OutlinedButton(
             onClick = onGoogle,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Google দিয়ে Sign Up") }
+        ) {
+            Text("Google দিয়ে Sign Up")
+        }
+
         TextButton(onClick = onLogin) {
             Text("আগে Account আছে? Login করো")
         }
@@ -551,18 +638,27 @@ private fun VerifyScreen(
     var phone by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
 
-    Page("Student Verification", "নিজের Student Record যাচাই করো") {
+    Page(
+        "Student Verification",
+        "নিজের Student Record যাচাই করো"
+    ) {
         Message(message)
+
         Text(
-            "ওয়েবসাইটে দেওয়া ফোন নম্বর ও জন্মতারিখ হুবহু লিখবে।",
-            color = Color.Gray, fontSize = 14.sp
+            text = "ওয়েবসাইটে দেওয়া ফোন নম্বর ও জন্মতারিখ হুবহু লিখবে।",
+            color = Color.Gray,
+            fontSize = 14.sp
         )
+
         Spacer(Modifier.height(12.dp))
+
         Field("Phone Number", phone) { phone = it }
         Field("Date of Birth (YYYY-MM-DD)", dob) { dob = it }
+
         MainButton("Verify Student", busy) {
             onVerify(phone.trim(), dob.trim())
         }
+
         TextButton(onClick = onLogout) {
             Text("Logout")
         }
@@ -575,8 +671,12 @@ private fun DashboardScreen(
     onLogout: () -> Unit
 ) {
     Page("স্বাগতম, $name", "Student Dashboard") {
-        Text("তোমার Student Account সফলভাবে যুক্ত হয়েছে।",
-            color = Navy, fontSize = 15.sp)
+        Text(
+            text = "তোমার Student Account সফলভাবে যুক্ত হয়েছে।",
+            color = Navy,
+            fontSize = 15.sp
+        )
+
         Spacer(Modifier.height(20.dp))
 
         listOf(
@@ -586,19 +686,27 @@ private fun DashboardScreen(
             "📢 Notice Board",
             "👤 Student Profile",
             "💳 Payment Information"
-        ).forEach {
+        ).forEach { item ->
+
             Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 5.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFFEAF1FF)
                 )
             ) {
-                Text(it, modifier = Modifier.padding(17.dp),
-                    color = Navy, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = item,
+                    modifier = Modifier.padding(17.dp),
+                    color = Navy,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 
         Spacer(Modifier.height(20.dp))
+
         OutlinedButton(
             onClick = onLogout,
             modifier = Modifier.fillMaxWidth()
