@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+
+def pagesUrl = (project.findProperty("WEB_APP_URL") ?: "https://nibedansarkar12.github.io/targettutorialhome/").toString()
+
+android {
+    namespace 'com.targettutorial.home'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.targettutorial.home'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+
+        buildConfigField 'String', 'WEB_APP_URL', '"' + pagesUrl.replace('"', '\\\\"') + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
