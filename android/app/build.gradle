@@ -5,6 +5,12 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+def keystoreFile = file("${rootDir}/app/target-tutorial-release.jks")
+def keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def keystoreReady = keystoreFile.exists() &&
+        keystorePassword != null &&
+        !keystorePassword.isEmpty()
+
 android {
     namespace 'com.targettutorial.home'
     compileSdk 35
@@ -15,6 +21,31 @@ android {
         targetSdk 35
         versionCode 2
         versionName '2.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreReady) {
+                storeFile keystoreFile
+                storePassword keystorePassword
+                keyAlias 'targettutorial'
+                keyPassword keystorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (keystoreReady) {
+                signingConfig signingConfigs.release
+            }
+        }
+
+        release {
+            if (keystoreReady) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 
     buildFeatures {
