@@ -345,73 +345,67 @@ class MainActivity : ComponentActivity() {
             }
     }
 
-    private fun verifyStudent(phone: String, dob: String) {
-        val user = auth.currentUser
+    
+private fun verifyStudent(phone: String, dob: String) {
+    val user = auth.currentUser
 
-        if (user == null) {
-            message = "Student Verification করতে আগে Login করো।"
-            page = "login"
-            return
-        }
-
-        val cleanPhone = phone.trim()
-        val cleanDob = dob.trim()
-
-        if (cleanPhone.isBlank() || cleanDob.isBlank()) {
-            message = "Phone ও Date of Birth দাও"
-            return
-        }
-
-        busy = true
-        message = ""
-
-        // Website-এর মতো students Collection-এ phone ও dob মিলিয়ে দেখা।
-        db.collection("students")
-            .whereEqualTo("phone", cleanPhone)
-            .whereEqualTo("dob", cleanDob)
-            .get()
-            .addOnSuccessListener { snap ->
-
-                if (snap.isEmpty) {
-                    busy = false
-                    message = "ফোন নম্বর অথবা জন্মতারিখ মিলছে না।"
-                    return@addOnSuccessListener
-                }
-
-                val document = snap.documents.first()
-
-                // Website-এর মতো পাওয়া Student record-এ email ও uid আপডেট।
-                document.reference.update(
-                    mapOf(
-                        "email" to (user.email ?: ""),
-                        "uid" to user.uid,
-                        "updatedAt" to java.util.Date()
-                    )
-                ).addOnSuccessListener {
-                    busy = false
-
-                    studentId = document.id
-                    studentName = document.getString("name") ?: "Student"
-                    isVerified = true
-                    isGuest = false
-
-                    prefs.edit()
-                        .putBoolean("guest_mode", false)
-                        .putString("student_id", document.id)
-                        .apply()
-
-                    message = "Student Verification সফল হয়েছে।"
-                    page = "dashboard"
-                }.addOnFailureListener { error ->
-                    busy = false
-                    message = error.localizedMessage ?: "Student record update করা যায়নি।"
-                }
-            }
-            .addOnFailureListener { error ->
-                busy = false
-                message = error.localizedMessage ?: "Verification ব্যর্থ হয়েছে।"
-            }
+    if (user == null) {
+        message = "প্রথমে Login করো।"
+        page = "login"
+        return
     }
+
+    val cleanPhone = phone.trim()
+    val cleanDob = dob.trim()
+
+    if (cleanPhone.isBlank() || cleanDob.isBlank()) {
+        message = "Phone ও Date of Birth দাও।"
+        return
+    }
+
+    busy = true
+    message = ""
+
+    FirebaseFunctions.getInstance("us-central1")
+        .getHttpsCallable("verifyStudent")
+        .call(
+            mapOf(
+                "phone" to cleanPhone,
+                "dob" to cleanDob
+            )
+        )
+        .addOnSuccessListener { result ->
+
+            val data = result.data as? Map<*, *>
+            val success = data?.get("success") as? Boolean ?: false
+            val sid = data?.get("studentId") as? String ?: ""
+            val name = data?.get("name") as? String ?: "Student"
+
+            if (success && sid.isNotBlank()) {
+                studentId = sid
+                studentName = name
+                isVerified = true
+                isGuest = false
+
+                prefs.edit()
+                    .putBoolean("guest_mode", false)
+                    .putString("student_id", sid)
+                    .apply()
+
+                message = "Student Verification সফল হয়েছে।"
+                page = "dashboard"
+            } else {
+                message = "Student Verification সফল হয়নি।"
+            }
+
+            busy = false
+        }
+        .addOnFailureListener { error ->
+            busy = false
+            message = error.localizedMessage ?: "Verification ব্যর্থ হয়েছে।"
+        }
+}
+
 
     private fun logout() {
         auth.signOut()
