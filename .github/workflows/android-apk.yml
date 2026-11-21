@@ -1,4 +1,3 @@
-
 name: Build Android APK
 
 on:
@@ -27,6 +26,11 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Generate SHA-1 and SHA-256
+        working-directory: android
+        run: |
+          gradle signingReport --console=plain
+
       - name: Build Android APK
         working-directory: android
         env:
@@ -44,4 +48,3 @@ jobs:
           name: target-tutorial-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          
