@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "667579216123",
+    "firebase_url": "https://target-zone-8fffd-default-rtdb.firebaseio.com",
+    "project_id": "target-zone-8fffd",
+    "storage_bucket": "target-zone-8fffd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667579216123:android:aaff6cd1c36fe4033d005e",
+        "android_client_info": {
+          "package_name": "com.targettutorial.home"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "667579216123-rkcanq8a0r99ifodueea8ska0cinjplv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.targettutorial.home",
+            "certificate_hash": "23d35e103e35ce2ba09254eb79e8118c714bd030"
+          }
+        },
+        {
+          "client_id": "667579216123-fvb5drksofbuoggjbm56rlmsb9ju1mes.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcofd1qMxUl7-PfwLa-evCRzgItfK9cWg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "667579216123-fvb5drksofbuoggjbm56rlmsb9ju1mes.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
