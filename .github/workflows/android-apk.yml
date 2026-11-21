@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -26,11 +27,6 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Generate SHA-1 and SHA-256
-        working-directory: android
-        run: |
-          gradle signingReport --console=plain
-
       - name: Build Android APK
         working-directory: android
         env:
@@ -41,6 +37,11 @@ jobs:
           else
             gradle assembleDebug
           fi
+
+      - name: Generate SHA-1 and SHA-256
+        working-directory: android
+        run: |
+          gradle signingReport --console=plain
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
