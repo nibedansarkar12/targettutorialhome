@@ -38,6 +38,12 @@ class MainActivity : ComponentActivity() {
     private var busy by mutableStateOf(false)
     private var studentName by mutableStateOf("Student")
     private var studentId by mutableStateOf("")
+    private var isGuest by mutableStateOf(false)
+    private var isVerified by mutableStateOf(false)
+
+    private val prefs by lazy {
+        getSharedPreferences("target_tutorial", MODE_PRIVATE)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,16 +51,23 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.rgb(11, 31, 58)
         window.navigationBarColor = android.graphics.Color.rgb(11, 31, 58)
 
-        val savedId = getPreferences(MODE_PRIVATE)
-            .getString("student_id", null)
+        isGuest = prefs.getBoolean("guest_mode", false)
+        studentId = prefs.getString("student_id", "") ?: ""
+        isVerified = studentId.isNotBlank()
 
-        if (auth.currentUser != null) {
-            if (savedId != null) {
-                studentId = savedId
-                loadStudent(savedId)
-            } else {
-                page = "verify"
+        when {
+            auth.currentUser != null -> {
+                isGuest = false
+                page = "dashboard"
+                loadUserName()
             }
+
+            isGuest -> {
+                page = "dashboard"
+                studentName = "Guest Student"
+            }
+
+            else -> page = "welcome"
         }
 
         setContent {
@@ -64,21 +77,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun loadStudent(id: String) {
-        db.collection("students").document(id).get()
-            .addOnSuccessListener { snap ->
-                if (snap.exists()) {
-                    studentName = snap.getString("name") ?: "Student"
-                    studentId = id
-                    page = "dashboard"
+    private fun loadUserName() {
+        val user = auth.currentUser ?: return
+
+        db.collection("users")
+            .whereEqualTo("uid", user.uid)
+            .get()
+            .addOnSuccessListener { result ->
+                if (!result.isEmpty) {
+                    studentName =
+                        result.documents.first().getString("name")
+                            ?: user.displayName
+                            ?: "Student"
                 } else {
-                    page = "verify"
+                    studentName = user.displayName ?: "Student"
                 }
             }
-            .addOnFailureListener {
-                message = it.message ?: "তথ্য পাওয়া যায়নি"
-                page = "verify"
-            }
+    }
+
+    private fun enterGuestMode() {
+        isGuest = true
+        isVerified = false
+        studentId = ""
+        studentName = "Guest Student"
+
+        prefs.edit()
+            .putBoolean("guest_mode", true)
+            .remove("student_id")
+            .apply()
+
+        message = ""
+        page = "dashboard"
     }
 
     private fun signup(
@@ -91,10 +120,8 @@ class MainActivity : ComponentActivity() {
         status: String
     ) {
         if (
-            name.isBlank() ||
-            phone.isBlank() ||
-            dob.isBlank() ||
-            email.isBlank() ||
+            name.isBlank() || phone.isBlank() ||
+            dob.isBlank() || email.isBlank() ||
             password.length < 6
         ) {
             message = "সব তথ্য পূরণ করো। Password কমপক্ষে ৬ অক্ষরের হতে হবে।"
@@ -107,17 +134,10 @@ class MainActivity : ComponentActivity() {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnSuccessListener { result ->
 
-                val user = result.user ?: run {
-                    busy = false
-                    message = "Account তৈরি হয়নি"
-                    return@addOnSuccessListener
-                }
-
-                val uidCode = name.first().uppercase() +
-                    (1000..9999).random().toString()
+                val user = result.user ?: return@addOnSuccessListener
 
                 val data = hashMapOf(
-                    "uid" to uidCode,
+                    "uid" to user.uid,
                     "name" to name,
                     "whatsapp" to phone,
                     "email" to email,
@@ -131,12 +151,26 @@ class MainActivity : ComponentActivity() {
                 db.collection("users").add(data)
                     .addOnSuccessListener {
                         busy = false
-                        message = "Signup সফল হয়েছে। এখন Phone ও DOB Verify করো।"
-                        page = "verify"
+                        isGuest = false
+                        isVerified = false
+                        studentId = ""
+                        studentName = name
+
+                        prefs.edit()
+                            .putBoolean("guest_mode", false)
+                            .remove("student_id")
+                            .apply()
+
+                        message = "Account তৈরি হয়েছে। চাইলে পরে Student Verification করতে পারবে।"
+                        page = "dashboard"
                     }
                     .addOnFailureListener {
                         busy = false
-                        message = "তথ্য সেভ হয়নি: ${it.message}"
+                        isGuest = false
+                        studentName = name
+                        prefs.edit().putBoolean("guest_mode", false).apply()
+                        message = "Account তৈরি হয়েছে, কিন্তু Profile তথ্য সেভ হয়নি: ${it.message}"
+                        page = "dashboard"
                     }
             }
             .addOnFailureListener {
@@ -156,8 +190,18 @@ class MainActivity : ComponentActivity() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener {
                 busy = false
+                isGuest = false
+                isVerified = false
+                studentId = ""
+
+                prefs.edit()
+                    .putBoolean("guest_mode", false)
+                    .remove("student_id")
+                    .apply()
+
                 message = ""
-                page = "verify"
+                loadUserName()
+                page = "dashboard"
             }
             .addOnFailureListener {
                 busy = false
@@ -201,8 +245,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val credential = GoogleAuthProvider.getCredential(
-                    account.idToken,
-                    null
+                    account.idToken, null
                 )
 
                 busy = true
@@ -212,31 +255,55 @@ class MainActivity : ComponentActivity() {
 
                         val user = result.user!!
 
+                        val profile = mapOf(
+                            "uid" to user.uid,
+                            "name" to user.displayName,
+                            "email" to user.email,
+                            "google" to true
+                        )
+
                         db.collection("users")
                             .whereEqualTo("uid", user.uid)
                             .get()
                             .addOnSuccessListener { snap ->
 
-                                if (snap.isEmpty) {
+                                val saveTask = if (snap.isEmpty) {
                                     db.collection("users").add(
-                                        mapOf(
-                                            "uid" to user.uid,
-                                            "name" to user.displayName,
-                                            "email" to user.email,
-                                            "createdAt" to FieldValue.serverTimestamp(),
-                                            "google" to true
+                                        profile + mapOf(
+                                            "createdAt" to FieldValue.serverTimestamp()
                                         )
-                                    ).addOnFailureListener {
-                                        message = it.message ?: "Google তথ্য সেভ হয়নি"
-                                    }
+                                    )
+                                } else {
+                                    db.collection("users")
+                                        .document(snap.documents.first().id)
+                                        .update(profile)
                                 }
 
-                                busy = false
-                                page = "verify"
+                                saveTask
+                                    .addOnSuccessListener {
+                                        busy = false
+                                        isGuest = false
+                                        isVerified = false
+                                        studentId = ""
+                                        studentName = user.displayName ?: "Student"
+
+                                        prefs.edit()
+                                            .putBoolean("guest_mode", false)
+                                            .remove("student_id")
+                                            .apply()
+
+                                        message = ""
+                                        page = "dashboard"
+                                    }
+                                    .addOnFailureListener {
+                                        busy = false
+                                        message = "Profile সেভ হয়নি: ${it.message}"
+                                        page = "dashboard"
+                                    }
                             }
                             .addOnFailureListener {
                                 busy = false
-                                message = it.message ?: "তথ্য সেভ হয়নি"
+                                message = it.message ?: "Profile পাওয়া যায়নি"
                             }
                     }
                     .addOnFailureListener {
@@ -252,13 +319,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun verifyStudent(phone: String, dob: String) {
-        if (phone.isBlank() || dob.isBlank()) {
-            message = "Phone ও Date of Birth দাও"
+        val user = auth.currentUser
+
+        if (user == null) {
+            message = "Student Verification করতে আগে Login করো।"
+            page = "login"
             return
         }
 
-        val user = auth.currentUser ?: run {
-            message = "প্রথমে Login করো"
+        if (phone.isBlank() || dob.isBlank()) {
+            message = "Phone ও Date of Birth দাও"
             return
         }
 
@@ -288,13 +358,18 @@ class MainActivity : ComponentActivity() {
 
                     busy = false
                     studentId = document.id
+                    isVerified = true
+                    isGuest = false
 
-                    getPreferences(MODE_PRIVATE).edit()
+                    prefs.edit()
+                        .putBoolean("guest_mode", false)
                         .putString("student_id", document.id)
                         .apply()
 
-                    studentName = document.getString("name") ?: "Student"
-                    message = ""
+                    studentName =
+                        document.getString("name") ?: "Student"
+
+                    message = "Student Verification সফল হয়েছে।"
                     page = "dashboard"
 
                 }.addOnFailureListener {
@@ -316,13 +391,13 @@ class MainActivity : ComponentActivity() {
             GoogleSignInOptions.DEFAULT_SIGN_IN
         ).signOut()
 
-        getPreferences(MODE_PRIVATE).edit()
-            .remove("student_id")
-            .apply()
+        prefs.edit().clear().apply()
 
+        isGuest = false
+        isVerified = false
         studentId = ""
         studentName = "Student"
-        message = "Logout সফল হয়েছে"
+        message = ""
         page = "welcome"
     }
 
@@ -330,38 +405,57 @@ class MainActivity : ComponentActivity() {
     private fun AppScreen() {
         when (page) {
             "welcome" -> WelcomeScreen(
-                onLogin = { page = "login" },
-                onSignup = { page = "signup" }
+                onLogin = { message = ""; page = "login" },
+                onSignup = { message = ""; page = "signup" },
+                onGuest = { enterGuestMode() }
             )
 
             "login" -> LoginScreen(
-                message,
-                busy,
+                message, busy,
                 onLogin = { e, p -> login(e, p) },
                 onGoogle = { googleLogin() },
-                onSignup = { page = "signup" }
+                onSignup = { message = ""; page = "signup" },
+                onGuest = { enterGuestMode() }
             )
 
             "signup" -> SignupScreen(
-                message,
-                busy,
+                message, busy,
                 onSignup = { n, ph, d, e, p, ed, st ->
                     signup(n, ph, d, e, p, ed, st)
                 },
                 onGoogle = { googleLogin() },
-                onLogin = { page = "login" }
+                onLogin = { message = ""; page = "login" },
+                onGuest = { enterGuestMode() }
             )
 
             "verify" -> VerifyScreen(
-                message,
-                busy,
+                message, busy,
                 onVerify = { ph, d -> verifyStudent(ph, d) },
-                onLogout = { logout() }
+                onBack = { page = "dashboard" }
             )
 
             "dashboard" -> DashboardScreen(
                 studentName,
+                isGuest,
+                isVerified,
+                message,
+                onVerify = {
+                    if (isGuest) {
+                        message = "Student Verification করতে আগে Login করো।"
+                        page = "login"
+                    } else {
+                        message = ""
+                        page = "verify"
+                    }
+                },
+                onExam = { page = "exam" },
+                onBack = { page = "dashboard" },
                 onLogout = { logout() }
+            )
+
+            "exam" -> ExamScreen(
+                isGuest,
+                onBack = { page = "dashboard" }
             )
         }
     }
@@ -394,7 +488,7 @@ private fun Page(
             .padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(35.dp))
+        Spacer(Modifier.height(25.dp))
 
         Text(
             text = "TT",
@@ -406,7 +500,7 @@ private fun Page(
                 .padding(horizontal = 23.dp, vertical = 13.dp)
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
         Text(
             text = "TARGET TUTORIAL",
@@ -415,13 +509,9 @@ private fun Page(
             color = Navy
         )
 
-        Text(
-            text = subtitle,
-            color = Blue,
-            fontSize = 14.sp
-        )
+        Text(text = subtitle, color = Blue, fontSize = 14.sp)
 
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(25.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -430,9 +520,7 @@ private fun Page(
                 containerColor = Color.White
             )
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = title,
                     fontSize = 23.sp,
@@ -451,11 +539,7 @@ private fun Page(
 @Composable
 private fun Message(text: String) {
     if (text.isNotBlank()) {
-        Text(
-            text = text,
-            color = Color(0xFFB3261E),
-            fontSize = 13.sp
-        )
+        Text(text, color = Blue, fontSize = 13.sp)
         Spacer(Modifier.height(10.dp))
     }
 }
@@ -481,7 +565,7 @@ private fun Field(
 @Composable
 private fun MainButton(
     text: String,
-    busy: Boolean,
+    busy: Boolean = false,
     onClick: () -> Unit
 ) {
     Button(
@@ -493,7 +577,7 @@ private fun MainButton(
         shape = RoundedCornerShape(13.dp)
     ) {
         Text(
-            text = if (busy) "অপেক্ষা করো..." else text,
+            if (busy) "অপেক্ষা করো..." else text,
             fontSize = 16.sp
         )
     }
@@ -502,37 +586,37 @@ private fun MainButton(
 @Composable
 private fun WelcomeScreen(
     onLogin: () -> Unit,
-    onSignup: () -> Unit
+    onSignup: () -> Unit,
+    onGuest: () -> Unit
 ) {
     Page("স্বাগতম!", "Learn • Practice • Succeed") {
         Text(
-            text = "তোমার পড়াশোনা, পরীক্ষা ও শিক্ষাসামগ্রী এক জায়গায়।",
+            "তোমার পড়াশোনা, পরীক্ষা ও শিক্ষাসামগ্রী এক জায়গায়।",
             color = Navy,
             fontSize = 16.sp
         )
 
-        Spacer(Modifier.height(25.dp))
+        Spacer(Modifier.height(24.dp))
 
-        MainButton("Login", false, onLogin)
+        MainButton("Login", onClick = onLogin)
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onSignup,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text("নতুন Account তৈরি করো")
         }
 
-        Spacer(Modifier.height(15.dp))
+        Spacer(Modifier.height(10.dp))
 
-        Text(
-            text = "Study Materials • Online Exam • Results • Notices",
-            color = Color.Gray,
-            fontSize = 13.sp
-        )
+        OutlinedButton(
+            onClick = onGuest,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Guest হিসেবে প্রবেশ করো")
+        }
     }
 }
 
@@ -542,7 +626,8 @@ private fun LoginScreen(
     busy: Boolean,
     onLogin: (String, String) -> Unit,
     onGoogle: () -> Unit,
-    onSignup: () -> Unit
+    onSignup: () -> Unit,
+    onGuest: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -557,7 +642,7 @@ private fun LoginScreen(
             onLogin(email.trim(), password)
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onGoogle,
@@ -569,6 +654,10 @@ private fun LoginScreen(
 
         TextButton(onClick = onSignup) {
             Text("নতুন শিক্ষার্থী? Sign Up করো")
+        }
+
+        TextButton(onClick = onGuest) {
+            Text("Guest হিসেবে প্রবেশ করো")
         }
     }
 }
@@ -582,7 +671,8 @@ private fun SignupScreen(
         String, String, String
     ) -> Unit,
     onGoogle: () -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    onGuest: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -606,10 +696,7 @@ private fun SignupScreen(
         Field("Status", status) { status = it }
 
         MainButton("Sign Up", busy) {
-            onSignup(
-                name, phone, dob, email,
-                password, education, status
-            )
+            onSignup(name, phone, dob, email, password, education, status)
         }
 
         Spacer(Modifier.height(10.dp))
@@ -625,6 +712,10 @@ private fun SignupScreen(
         TextButton(onClick = onLogin) {
             Text("আগে Account আছে? Login করো")
         }
+
+        TextButton(onClick = onGuest) {
+            Text("Guest হিসেবে প্রবেশ করো")
+        }
     }
 }
 
@@ -633,19 +724,16 @@ private fun VerifyScreen(
     message: String,
     busy: Boolean,
     onVerify: (String, String) -> Unit,
-    onLogout: () -> Unit
+    onBack: () -> Unit
 ) {
     var phone by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
 
-    Page(
-        "Student Verification",
-        "নিজের Student Record যাচাই করো"
-    ) {
+    Page("Student Verification", "এটি ঐচ্ছিক") {
         Message(message)
 
         Text(
-            text = "ওয়েবসাইটে দেওয়া ফোন নম্বর ও জন্মতারিখ হুবহু লিখবে।",
+            "Student Record-এর বিশেষ সুবিধা পেতে ওয়েবসাইটে দেওয়া ফোন নম্বর ও জন্মতারিখ মিলিয়ে যাচাই করো।",
             color = Color.Gray,
             fontSize = 14.sp
         )
@@ -659,8 +747,8 @@ private fun VerifyScreen(
             onVerify(phone.trim(), dob.trim())
         }
 
-        TextButton(onClick = onLogout) {
-            Text("Logout")
+        TextButton(onClick = onBack) {
+            Text("পরে করব — Main Page-এ ফিরে যাও")
         }
     }
 }
@@ -668,16 +756,40 @@ private fun VerifyScreen(
 @Composable
 private fun DashboardScreen(
     name: String,
+    guest: Boolean,
+    verified: Boolean,
+    message: String,
+    onVerify: () -> Unit,
+    onExam: () -> Unit,
+    onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
     Page("স্বাগতম, $name", "Student Dashboard") {
+        Message(message)
+
         Text(
-            text = "তোমার Student Account সফলভাবে যুক্ত হয়েছে।",
+            if (guest) "তুমি Guest Mode-এ আছো।"
+            else if (verified) "Student Verification সম্পন্ন হয়েছে।"
+            else "তোমার Account Login করা আছে। Verification ঐচ্ছিক।",
             color = Navy,
-            fontSize = 15.sp
+            fontSize = 14.sp
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(15.dp))
+
+        if (!verified) {
+            OutlinedButton(
+                onClick = onVerify,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (guest) "Student Login / Verification"
+                    else "Student Verification"
+                )
+            }
+        }
+
+        Spacer(Modifier.height(15.dp))
 
         listOf(
             "📚 Study Materials",
@@ -686,7 +798,7 @@ private fun DashboardScreen(
             "📢 Notice Board",
             "👤 Student Profile",
             "💳 Payment Information"
-        ).forEach { item ->
+        ).forEachIndexed { index, item ->
 
             Card(
                 modifier = Modifier
@@ -696,22 +808,69 @@ private fun DashboardScreen(
                     containerColor = Color(0xFFEAF1FF)
                 )
             ) {
-                Text(
-                    text = item,
-                    modifier = Modifier.padding(17.dp),
-                    color = Navy,
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (index == 1) {
+                    TextButton(
+                        onClick = onExam,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            item,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Navy
+                        )
+                    }
+                } else {
+                    Text(
+                        item,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(17.dp),
+                        color = Navy,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
+
+        if (guest) {
+            MainButton("Login / Sign Up", onClick = onVerify)
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onLogout,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Logout")
+            Text(if (guest) "Guest Mode বন্ধ করো" else "Logout")
         }
+    }
+}
+
+@Composable
+private fun ExamScreen(
+    guest: Boolean,
+    onBack: () -> Unit
+) {
+    Page("Online Examination", "পরীক্ষা বিভাগ") {
+        Text(
+            "তুমি ${if (guest) "Guest Mode" else "Login Account"} থেকে পরীক্ষা বিভাগে এসেছো।",
+            color = Navy,
+            fontSize = 15.sp
+        )
+
+        Spacer(Modifier.height(15.dp))
+
+        Text(
+            "পরীক্ষার আসল প্রশ্ন, সময়, উত্তর জমা ও ফলাফল এখনো ওয়েবসাইটের Exam System-এর সঙ্গে যুক্ত করা বাকি। পরবর্তী ধাপে সেটি যুক্ত করা হবে।",
+            color = Color.Gray,
+            fontSize = 14.sp
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        MainButton("Main Page-এ ফিরে যাও", onClick = onBack)
     }
 }
